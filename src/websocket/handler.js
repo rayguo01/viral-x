@@ -1,7 +1,7 @@
 const { WebSocketServer } = require('ws');
 const { verifyToken } = require('../middleware/auth');
 const { pool } = require('../config/database');
-const { claudeService } = require('../services/claude');
+const { processManager } = require('../services/claude');
 
 function setupWebSocket(server) {
     const wss = new WebSocketServer({ server });
@@ -35,10 +35,10 @@ function setupWebSocket(server) {
                 if (message.type === 'message') {
                     await handleMessage(ws, message);
                 } else if (message.type === 'status') {
-                    // 返回服务状态
+                    // 返回进程池状态
                     ws.send(JSON.stringify({
                         type: 'status',
-                        data: { status: 'ok' }
+                        data: processManager.getStatus()
                     }));
                 }
             } catch (err) {
@@ -126,8 +126,8 @@ async function handleMessage(ws, message) {
     // 通知开始处理
     ws.send(JSON.stringify({ type: 'start' }));
 
-    // 使用 Claude 服务发送消息
-    claudeService.sendMessage(
+    // 使用进程池管理器发送消息
+    processManager.sendMessage(
         content,
         session.claude_session_id,
         // 流式数据回调
