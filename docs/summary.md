@@ -1,6 +1,6 @@
 # Web Claude Code 项目概要
 
-## 版本: v1.3.0
+## 版本: v1.4.0
 
 ## 完成的工作
 
@@ -98,49 +98,38 @@
 - 禁用电话号码自动检测
 - 禁用用户缩放
 
-### 3.3 进程池架构优化 (v1.3.0)
+### 3.3 Claude CLI 服务架构 (v1.4.0)
 
-**架构改进**：从每次请求启动新进程，改为长运行进程池模式。
+**架构设计**：每次请求启动新进程，通过 `--resume` 保持会话上下文。
 
-**旧架构**：
 ```
-用户发消息 → spawn claude → 执行 → 退出
-用户发消息 → spawn claude → 执行 → 退出  (每次都有启动开销)
-```
-
-**新架构**：
-```
-用户发消息 → 复用已有进程 → stdin 发送 → stdout 接收
-用户发消息 → 复用已有进程 → stdin 发送 → stdout 接收  (进程保持运行)
+用户发消息 → spawn claude -p "消息" --resume <session_id> → 流式输出 → 进程退出
 ```
 
 **核心组件**：
-- `ClaudeProcess` - 单个 Claude CLI 进程包装器
-- `ClaudeProcessManager` - 进程池管理器（单例）
+- `ClaudeService` - Claude CLI 调用服务（单例）
 
-**进程池特性**：
-- 每个会话维护一个长运行进程
-- 通过 stdin/stdout 流式 JSON 通信
-- 最大进程数限制（默认 10）
-- 空闲进程自动清理（5分钟）
-- 进程异常自动从池中移除
-- 优雅退出时关闭所有进程
+**特性**：
+- 简单可靠的进程管理
+- 通过 `--resume` 参数恢复会话上下文
+- 流式 JSON 输出 (`--output-format stream-json`)
+- 2分钟超时保护
+- session_id 持久化到数据库
 
 **通信协议**：
-```json
-// 输入 (stdin)
-{"type":"user","message":{"role":"user","content":"消息内容"}}
+```bash
+# 命令格式
+claude -p "用户消息" --output-format stream-json --resume <session_id>
 
-// 输出 (stdout)
-{"type":"system","subtype":"init","session_id":"xxx",...}
-{"type":"assistant","message":{"content":[{"type":"text","text":"回复"}]}}
+# 输出 (stdout, 每行一个 JSON)
+{"type":"assistant","message":{"content":[{"type":"text","text":"回复"}]},"session_id":"xxx"}
 {"type":"result","session_id":"xxx",...}
 ```
 
-**性能提升**：
-- 首次请求：需要启动进程（约 2-5 秒）
-- 后续请求：直接复用进程（毫秒级）
-- 同一会话内上下文自动保持
+**会话恢复**：
+- 每次请求返回 session_id
+- session_id 保存到数据库 sessions.claude_session_id
+- 下次请求使用 `--resume <session_id>` 恢复上下文
 
 ### 4. 核心功能
 - 用户注册/登录（JWT 认证）
