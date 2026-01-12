@@ -453,20 +453,20 @@ router.post('/upload', authMiddleware, async (req, res) => {
         };
         const mimeType = mimeTypes[ext] || 'image/jpeg';
 
-        // 使用 Twitter v2 媒体上传 API
-        const formData = new FormData();
-        formData.append('media', imageBuffer, {
-            filename: path.basename(fullPath),
-            contentType: mimeType
-        });
+        // 确定 media_category
+        const mediaCategory = ext === '.gif' ? 'tweet_gif' : 'tweet_image';
 
+        // 使用 Twitter v2 媒体上传 API (JSON 格式)
         const uploadResponse = await fetch('https://api.x.com/2/media/upload', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${access_token}`,
-                ...formData.getHeaders()
+                'Content-Type': 'application/json'
             },
-            body: formData
+            body: JSON.stringify({
+                media: imageBase64,
+                media_category: mediaCategory
+            })
         });
 
         if (!uploadResponse.ok) {
