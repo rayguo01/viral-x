@@ -4,21 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#f0fdf4">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#050510">
     <meta name="format-detection" content="telephone=no">
-    <title>Web Claude Code - AI 助手</title>
+    <title>X 帖子生成器</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/generator.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✨</text></svg>">
+    <!-- 防止闪烁：立即应用保存的主题 -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
 </head>
 <body>
+    <!-- 主题切换按钮 -->
+    <button class="theme-toggle" id="theme-toggle" title="切换主题">
+        <span id="theme-icon">☀️</span>
+    </button>
+
     <div id="app">
         <!-- 登录页面 -->
         <div id="auth-page" class="page">
             <div class="auth-container">
-                <h1>Web Claude Code</h1>
-                <p class="auth-subtitle">与 AI 开始智能对话</p>
+                <h1>X 帖子生成器</h1>
+                <p class="auth-subtitle">AI 驱动的社交媒体内容创作</p>
 
                 <div class="auth-tabs">
                     <button class="tab-btn active" data-tab="login">登录</button>
@@ -32,7 +45,7 @@
                     <div class="input-group">
                         <input type="password" id="login-password" placeholder="密码" required autocomplete="current-password">
                     </div>
-                    <button type="submit">开始对话</button>
+                    <button type="submit">开始创作</button>
                     <p class="error-msg" id="login-error"></p>
                 </form>
 
@@ -49,51 +62,49 @@
             </div>
         </div>
 
-        <!-- 聊天页面 -->
-        <div id="chat-page" class="page hidden">
-            <!-- 移动端顶部导航栏 -->
-            <header class="mobile-header">
-                <button class="menu-btn" id="menu-btn" aria-label="打开菜单">
-                    <div class="menu-icon">
-                        <span></span>
-                        <span></span>
-                        <span></span>
+        <!-- 生成器页面 -->
+        <div id="generator-page" class="page hidden">
+            <div class="generator-page">
+                <div class="generator-container">
+                    <!-- 头部 -->
+                    <header class="generator-header">
+                        <div class="generator-title">
+                            <span class="generator-title-icon">📝</span>
+                            X 帖子生成器
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-ghost" id="history-btn">
+                                📋 历史
+                            </button>
+                            <button class="btn btn-ghost" id="logout-btn">
+                                退出
+                            </button>
+                        </div>
+                    </header>
+
+                    <!-- 工作流程图 -->
+                    <div id="workflow-container"></div>
+
+                    <!-- 内容区域 -->
+                    <div class="generator-content" id="generator-content">
+                        <!-- 动态渲染的页面内容 -->
                     </div>
-                </button>
-                <h1>Web Claude Code</h1>
-                <button class="mobile-new-chat-btn" id="mobile-new-chat-btn" aria-label="新对话">✦</button>
-            </header>
-
-            <!-- 侧边栏遮罩 -->
-            <div class="sidebar-overlay" id="sidebar-overlay"></div>
-
-            <!-- 侧边栏 -->
-            <aside class="sidebar" id="sidebar">
-                <div class="sidebar-header">
-                    <div class="sidebar-logo">
-                        <h2>Web Claude Code</h2>
-                    </div>
-                    <button id="new-chat-btn">新对话</button>
                 </div>
-                <div id="session-list" class="session-list"></div>
-                <div class="sidebar-footer">
-                    <span id="current-user"></span>
-                    <button id="logout-btn">退出登录</button>
-                </div>
-            </aside>
-
-            <!-- 主聊天区域 -->
-            <main class="chat-main">
-                <div id="messages" class="messages"></div>
-
-                <div class="input-area">
-                    <textarea id="message-input" placeholder="输入你的问题..." rows="1"></textarea>
-                    <button id="send-btn"><span>发送</span></button>
-                </div>
-            </main>
+            </div>
         </div>
     </div>
 
+    <!-- 生成器模块 -->
+    <script src="/js/generator/state.js"></script>
+    <script src="/js/generator/workflow.js"></script>
+    <script src="/js/generator/pages/home.js"></script>
+    <script src="/js/generator/pages/trends.js"></script>
+    <script src="/js/generator/pages/content.js"></script>
+    <script src="/js/generator/pages/optimize.js"></script>
+    <script src="/js/generator/pages/image.js"></script>
+    <script src="/js/generator/pages/submit.js"></script>
+    <script src="/js/generator/pages/history.js"></script>
+    <script src="/js/generator/index.js"></script>
     <script src="/js/app.js"></script>
 </body>
 </html>

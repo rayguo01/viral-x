@@ -1,8 +1,60 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.2.0
+## 版本: v2.4.0
 
 ## 完成的工作
+
+### 3.11 双主题系统 - 可切换 Light/Dark 主题 (v2.4.0)
+
+**功能概述**：添加主题切换功能，支持清新浅色主题和暗色主题，用户可手动切换并持久化保存偏好。
+
+**两套主题**：
+
+| 主题 | 名称 | 风格 |
+|------|------|------|
+| Light | Fresh & Clean | 简单清新，蓝绿配色，白色背景 |
+| Dark | Cosmic Noir | 深邃宇宙，青紫霓虹，暗色背景 |
+
+**Light 主题配色**：
+- 背景：#f8fafc (浅灰白)
+- 主色：#0ea5e9 (清新蓝) + #10b981 (薄荷绿)
+- 表面：#ffffff (纯白卡片)
+- 文字：#0f172a (深灰)
+
+**Dark 主题配色**：
+- 背景：#0f172a (深蓝黑)
+- 主色：#22d3ee (霓虹青) + #a78bfa (淡紫)
+- 表面：rgba(30, 41, 59, 0.8) (半透明)
+- 星尘动画背景效果
+
+**技术实现**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `public/css/style.css` | 双主题 CSS 变量 (`[data-theme="light"]` / `[data-theme="dark"]`) |
+| `public/css/generator.css` | 统一使用 CSS 变量，兼容双主题 |
+| `public/index.html` | 添加主题切换按钮、防闪烁脚本 |
+| `public/js/app.js` | 主题切换逻辑 + localStorage 持久化 |
+
+**主题切换按钮**：
+- 位置：页面右上角固定
+- 图标：☀️ (浅色) / 🌙 (深色)
+- 点击切换主题，自动保存到 localStorage
+
+**防闪烁机制**：
+```html
+<script>
+    (function() {
+        var theme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+</script>
+```
+
+**字体**：
+- Plus Jakarta Sans + Inter (Google Fonts)
+
+---
 
 ### 3.9 定时趋势抓取系统 (v2.2.0)
 

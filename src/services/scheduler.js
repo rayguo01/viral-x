@@ -137,6 +137,27 @@ class Scheduler {
     }
 
     /**
+     * 检查缓存是否在当前小时内生成
+     * @param {string} skillId
+     * @returns {boolean}
+     */
+    isCacheFromCurrentHour(skillId) {
+        const cached = skillCache.get(skillId);
+        if (!cached || !cached.generatedAt) {
+            return false;
+        }
+
+        const now = new Date();
+        const cacheTime = new Date(cached.generatedAt);
+
+        // 检查是否同一小时
+        return now.getFullYear() === cacheTime.getFullYear() &&
+               now.getMonth() === cacheTime.getMonth() &&
+               now.getDate() === cacheTime.getDate() &&
+               now.getHours() === cacheTime.getHours();
+    }
+
+    /**
      * 启动定时任务
      * cron 格式: 分 时 日 月 星期
      * "1 * * * *" = 每小时的第1分钟
@@ -153,9 +174,19 @@ class Scheduler {
         this.jobs.set('trends', job);
         console.log('[调度器] 定时任务已启动：每小时1分钟抓取趋势数据');
 
-        // 启动时立即执行一次
-        console.log('[调度器] 服务启动，立即执行首次抓取...');
-        this.fetchAllTrends();
+        // 启动时检查是否需要抓取
+        const xTrendsCached = this.isCacheFromCurrentHour('x-trends');
+        const tophubCached = this.isCacheFromCurrentHour('tophub-trends');
+
+        if (xTrendsCached && tophubCached) {
+            console.log('[调度器] 当前小时已有缓存，跳过首次抓取');
+        } else {
+            const needFetch = [];
+            if (!xTrendsCached) needFetch.push('x-trends');
+            if (!tophubCached) needFetch.push('tophub-trends');
+            console.log(`[调度器] 需要抓取: ${needFetch.join(', ')}`);
+            this.fetchAllTrends();
+        }
     }
 
     /**

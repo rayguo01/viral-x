@@ -25,7 +25,7 @@ class SkillCache {
         // 缓存配置（毫秒）
         this.ttlConfig = {
             'x-trends': 60 * 60 * 1000,        // 1 小时
-            'tophub-trends': 24 * 60 * 60 * 1000  // 24 小时
+            'tophub-trends': 60 * 60 * 1000    // 1 小时
         };
 
         // 持久化缓存目录

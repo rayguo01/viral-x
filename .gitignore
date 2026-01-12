@@ -2,3 +2,10 @@ node_modules/
 .env
 *.log
 CLAUDE.md
+
+# Skill 输出目录（保留目录结构）
+outputs/**/*.json
+outputs/**/*.md
+outputs/**/*.png
+outputs/**/*.txt
+!outputs/**/.gitkeep

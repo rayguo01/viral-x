@@ -1,0 +1,446 @@
+/**
+ * 生成内容页 - 展示版本 C 内容、评分和建议
+ */
+class ContentPage {
+    constructor(generator, params) {
+        this.generator = generator;
+        this.state = window.generatorState;
+        this.isLoading = false;
+        this.isEditing = true; // 初始状态为编辑输入
+        this.report = null;
+        this.versionC = '';
+        this.score = null;
+        this.suggestions = '';
+        this.inputText = ''; // 用户输入的素材文本
+    }
+
+    render(container) {
+        const task = this.state.task;
+        const topic = task?.trends_data?.selectedTopic;
+
+        // 如果已有生成的内容，直接显示
+        if (task?.content_data?.versionC) {
+            this.isEditing = false;
+            this.versionC = task.content_data.versionC || '';
+            this.score = task.content_data.score;
+            this.suggestions = task.content_data.suggestions || '';
+        } else {
+            // 从话题信息构建默认输入文本
+            this.inputText = this.buildInputText(topic);
+        }
+
+        container.innerHTML = `
+            <div class="content-page">
+                <div class="page-title">
+                    <span>✍️</span> 生成内容
+                </div>
+
+                <div class="content-area" id="content-area">
+                    ${this.renderContentArea()}
+                </div>
+
+                <div class="page-actions">
+                    <div class="action-left">
+                        <button class="btn btn-secondary" id="back-btn">
+                            ← 重选话题
+                        </button>
+                        <button class="btn btn-danger" id="abandon-btn">
+                            放弃任务
+                        </button>
+                    </div>
+                    <div class="action-right">
+                        <button class="btn btn-ghost" id="skip-btn" ${!this.versionC ? 'disabled' : ''}>
+                            跳过优化
+                        </button>
+                        <button class="btn btn-primary" id="next-btn" ${!this.versionC ? 'disabled' : ''}>
+                            下一步: 优化 →
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.bindEvents(container);
+    }
+
+    buildInputText(topic) {
+        if (!topic) return '';
+
+        let text = '';
+
+        // 话题标题
+        if (topic.title || topic.topic) {
+            text += `【话题】${topic.title || topic.topic}\n\n`;
+        }
+
+        // 选题角度
+        if (topic.angle) {
+            text += `【选题角度】${topic.angle}\n\n`;
+        }
+
+        // 为什么有效
+        if (topic.meta) {
+            text += `【为什么有效】${topic.meta}\n\n`;
+        }
+
+        // 创作方向 - 优先使用 directions 数组，回退到 direction HTML
+        if (topic.directions && Array.isArray(topic.directions) && topic.directions.length > 0) {
+            // 新格式：directions 是数组
+            const directionText = topic.directions.map(d => `- ${d}`).join('\n');
+            text += `【创作方向】\n${directionText}\n\n`;
+        } else if (topic.direction) {
+            // 旧格式：从 HTML 转回文本
+            let directionText = topic.direction
+                .replace(/<div class="direction-item">•\s*/g, '- ')
+                .replace(/<\/div>/g, '\n')
+                .trim();
+            text += `【创作方向】\n${directionText}\n\n`;
+        }
+
+        // 原始上下文
+        if (topic.context && !topic.angle) {
+            text += `【背景信息】\n${topic.context}\n`;
+        }
+
+        return text.trim();
+    }
+
+    renderContentArea() {
+        if (this.isLoading) {
+            return `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在生成内容...</div>
+                </div>
+                <div class="log-output" id="log-output"></div>
+            `;
+        }
+
+        // 编辑输入阶段
+        if (this.isEditing) {
+            return `
+                <div class="input-section">
+                    <div class="input-header">
+                        <div class="input-title">📝 创作素材</div>
+                        <div class="input-hint">编辑以下内容作为创作输入，你可以选择一个创作方向；完成后点击生成</div>
+                    </div>
+                    <textarea class="content-textarea input-textarea" id="input-text" placeholder="输入你的创作素材...">${this.escapeHtml(this.inputText)}</textarea>
+                    <div class="input-actions">
+                        <button class="btn btn-primary btn-large" id="generate-btn">
+                            ✨ 生成内容
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 已生成内容阶段
+        return `
+            <div class="content-editor">
+                <div class="editor-label">
+                    <span>🌟</span> 生成结果
+                </div>
+                <textarea class="content-textarea" id="content-input">${this.escapeHtml(this.versionC)}</textarea>
+                <div class="char-count">${this.versionC.length} 字</div>
+            </div>
+
+            ${this.score ? `
+                <div class="score-card">
+                    <div class="score-item">
+                        <div class="score-label">好奇心</div>
+                        <div class="score-value">${this.score.curiosity || '-'}</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-label">共鸣度</div>
+                        <div class="score-value">${this.score.resonance || '-'}</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-label">清晰度</div>
+                        <div class="score-value">${this.score.clarity || '-'}</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-label">传播值</div>
+                        <div class="score-value">${this.score.viral || '-'}</div>
+                    </div>
+                    <div class="score-total">
+                        总分: ${this.score.total || '-'}/100
+                    </div>
+                </div>
+            ` : ''}
+
+            ${this.suggestions ? `
+                <div class="suggestions">
+                    <div class="suggestions-title">💡 优化建议</div>
+                    <div class="suggestions-content">${this.generator.formatMarkdown(this.suggestions)}</div>
+                </div>
+            ` : ''}
+
+            <div class="regenerate-section">
+                <button class="btn btn-secondary" id="edit-input-btn">
+                    ✏️ 修改输入
+                </button>
+                <button class="btn btn-secondary" id="regenerate-btn">
+                    🔄 重新生成
+                </button>
+            </div>
+        `;
+    }
+
+    updateContentArea() {
+        const area = document.getElementById('content-area');
+        if (area) {
+            area.innerHTML = this.renderContentArea();
+            this.bindContentEvents();
+        }
+    }
+
+    bindEvents(container) {
+        // 返回按钮 - 回退到选话题
+        container.querySelector('#back-btn').addEventListener('click', async () => {
+            try {
+                await this.generator.updateTask('goBack', { toStep: 'trends' });
+                this.generator.navigate('trends');
+            } catch (error) {
+                console.error('回退失败:', error);
+            }
+        });
+
+        // 放弃任务
+        container.querySelector('#abandon-btn').addEventListener('click', () => {
+            this.generator.abandonTask();
+        });
+
+        // 跳过优化
+        container.querySelector('#skip-btn').addEventListener('click', async () => {
+            await this.saveContent();
+            try {
+                await this.generator.updateTask('skipStep', { step: 'optimize' });
+                this.generator.navigate('image');
+            } catch (error) {
+                console.error('跳过失败:', error);
+            }
+        });
+
+        // 下一步
+        container.querySelector('#next-btn').addEventListener('click', async () => {
+            await this.saveContent();
+            this.generator.navigate('optimize');
+        });
+
+        this.bindContentEvents();
+    }
+
+    bindContentEvents() {
+        const container = document.getElementById('content-area');
+        if (!container) return;
+
+        // 生成按钮
+        const generateBtn = container.querySelector('#generate-btn');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', () => this.generateContent());
+        }
+
+        // 重新生成按钮
+        const regenerateBtn = container.querySelector('#regenerate-btn');
+        if (regenerateBtn) {
+            regenerateBtn.addEventListener('click', () => this.generateContent());
+        }
+
+        // 修改输入按钮
+        const editInputBtn = container.querySelector('#edit-input-btn');
+        if (editInputBtn) {
+            editInputBtn.addEventListener('click', () => {
+                this.isEditing = true;
+                this.updateContentArea();
+            });
+        }
+
+        // 监听输入框变化，保存输入文本
+        const inputText = container.querySelector('#input-text');
+        if (inputText) {
+            inputText.addEventListener('input', (e) => {
+                this.inputText = e.target.value;
+            });
+        }
+    }
+
+    async generateContent() {
+        // 获取用户编辑后的输入文本
+        const inputTextEl = document.getElementById('input-text');
+        if (inputTextEl) {
+            this.inputText = inputTextEl.value.trim();
+        }
+
+        if (!this.inputText) {
+            this.generator.showToast('请输入创作素材', 'error');
+            return;
+        }
+
+        this.isLoading = true;
+        this.isEditing = false;
+        this.updateContentArea();
+
+        try {
+            // 使用用户输入的文本作为 topic
+            const customTopic = {
+                title: '自定义创作',
+                context: this.inputText
+            };
+
+            await this.generator.executeStep('content', { topic: customTopic, rawInput: this.inputText }, {
+                start: () => {
+                    // 开始
+                },
+                log: (data) => {
+                    const logOutput = document.getElementById('log-output');
+                    if (logOutput) {
+                        logOutput.textContent += data.message;
+                        logOutput.scrollTop = logOutput.scrollHeight;
+                    }
+                },
+                report: (data) => {
+                    this.report = data.content;
+                    this.parseReport(data.content);
+                },
+                done: () => {
+                    this.isLoading = false;
+                    this.updateContentArea();
+                    this.updateButtons();
+                },
+                error: (data) => {
+                    this.isLoading = false;
+                    this.isEditing = true; // 失败后回到编辑状态
+                    this.generator.showToast(`生成失败: ${data.message}`, 'error');
+                    this.updateContentArea();
+                }
+            });
+        } catch (error) {
+            this.isLoading = false;
+            this.isEditing = true; // 失败后回到编辑状态
+            this.generator.showToast(`生成失败: ${error.message}`, 'error');
+            this.updateContentArea();
+        }
+    }
+
+    parseReport(report) {
+        // 尝试解析 JSON 格式
+        try {
+            let data = report;
+            if (typeof report === 'string') {
+                // 尝试解析 JSON 字符串
+                let jsonStr = report.trim();
+                // 移除可能的 markdown 代码块
+                const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    jsonStr = jsonMatch[1].trim();
+                }
+                // 找到 JSON 对象的开始和结束
+                const startIndex = jsonStr.indexOf('{');
+                const endIndex = jsonStr.lastIndexOf('}');
+                if (startIndex !== -1 && endIndex !== -1) {
+                    jsonStr = jsonStr.substring(startIndex, endIndex + 1);
+                }
+                data = JSON.parse(jsonStr);
+            }
+
+            // 从 JSON 中提取数据
+            if (data.versionC && data.versionC.content) {
+                // 将 \n 转换为实际换行
+                this.versionC = data.versionC.content.replace(/\\n/g, '\n');
+            }
+
+            // 提取评分
+            if (data.evaluation) {
+                this.score = {
+                    curiosity: data.evaluation.curiosity?.score || 0,
+                    resonance: data.evaluation.resonance?.score || 0,
+                    clarity: data.evaluation.clarity?.score || 0,
+                    viral: data.evaluation.shareability?.score || 0,
+                    total: data.evaluation.total || 0
+                };
+            }
+
+            // 提取优化建议
+            if (data.suggestions && Array.isArray(data.suggestions)) {
+                this.suggestions = data.suggestions.map(s => `• ${s}`).join('\n');
+            }
+
+            // 保存完整数据以便后续使用
+            this.reportData = data;
+
+        } catch (e) {
+            console.warn('JSON 解析失败，尝试使用旧的 Markdown 解析:', e.message);
+            // 回退到旧的 Markdown 解析方式
+            this.parseReportMarkdown(report);
+        }
+    }
+
+    parseReportMarkdown(report) {
+        // 旧的 Markdown 解析逻辑（作为回退）
+        const versionCMatch = report.match(/##\s*🌟?\s*版本\s*C[\s\S]*?(?=##|$)/i);
+
+        if (versionCMatch) {
+            let content = versionCMatch[0];
+            content = content.replace(/^##.*\n/, '').trim();
+            content = content.replace(/###?\s*📊?\s*评分[\s\S]*/i, '').trim();
+            this.versionC = content;
+        } else {
+            this.versionC = report;
+        }
+
+        const scoreMatch = report.match(/好奇心[：:]\s*(\d+)[\s\S]*?共鸣度[：:]\s*(\d+)[\s\S]*?清晰度[：:]\s*(\d+)[\s\S]*?传播值[：:]\s*(\d+)/i);
+        if (scoreMatch) {
+            this.score = {
+                curiosity: parseInt(scoreMatch[1]),
+                resonance: parseInt(scoreMatch[2]),
+                clarity: parseInt(scoreMatch[3]),
+                viral: parseInt(scoreMatch[4]),
+                total: parseInt(scoreMatch[1]) + parseInt(scoreMatch[2]) + parseInt(scoreMatch[3]) + parseInt(scoreMatch[4])
+            };
+        }
+
+        const suggestionsMatch = report.match(/###?\s*💡?\s*优化建议[\s\S]*?(?=##|$)/i);
+        if (suggestionsMatch) {
+            this.suggestions = suggestionsMatch[0].replace(/^###?.*\n/, '').trim();
+        }
+    }
+
+    async saveContent() {
+        const input = document.getElementById('content-input');
+        const content = input ? input.value.trim() : this.versionC;
+
+        if (!content) return;
+
+        try {
+            await this.generator.updateTask('saveContent', {
+                versionC: content,
+                score: this.score,
+                suggestions: this.suggestions,
+                rawReport: this.report
+            });
+        } catch (error) {
+            console.error('保存内容失败:', error);
+        }
+    }
+
+    updateButtons() {
+        const skipBtn = document.getElementById('skip-btn');
+        const nextBtn = document.getElementById('next-btn');
+
+        if (skipBtn) skipBtn.disabled = !this.versionC;
+        if (nextBtn) nextBtn.disabled = !this.versionC;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    destroy() {
+        // 清理
+    }
+}
+
+// 导出
+window.ContentPage = ContentPage;
