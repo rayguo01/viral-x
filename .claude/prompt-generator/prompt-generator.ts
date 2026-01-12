@@ -1,7 +1,7 @@
 /**
  * Prompt Generator - 根据帖子内容生成 AI 图像生成 prompt
  *
- * 使用 Claude CLI 生成适合社交媒体配图的中文 prompt
+ * 使用 Claude CLI 生成适合社交媒体配图的英文 prompt
  */
 
 import * as fs from 'fs';
@@ -11,37 +11,38 @@ import { spawn } from 'child_process';
 // JSON Schema 定义
 const JSON_SCHEMA = `
 {
-  "prompt": "完整的图像生成描述，1-3句话，中文",
-  "style": "风格建议（如：现代简约、活力四射、复古怀旧等）",
-  "mood": "氛围描述（如：温暖、冷峻、充满活力等）",
-  "elements": ["视觉元素1", "视觉元素2", "视觉元素3"],
-  "colorTone": "色调建议（如：暖色调、冷色调、高对比度等）"
+  "prompt": "Complete image generation description in English, 2-4 sentences, detailed and vivid",
+  "style": "Style suggestion (e.g., modern minimalist, vibrant, vintage, cinematic)",
+  "mood": "Mood description (e.g., warm, dramatic, energetic, serene)",
+  "elements": ["visual element 1", "visual element 2", "visual element 3"],
+  "colorTone": "Color tone suggestion (e.g., warm tones, cool tones, high contrast, pastel)"
 }`;
 
-const SYSTEM_PROMPT = `你是一个专业的社交媒体配图描述专家。
+const SYSTEM_PROMPT = `You are a professional social media image description expert.
 
-根据给定的社交媒体帖子内容，生成一个适合 AI 图像生成的中文描述（prompt）。
+Based on the given social media post content, generate an AI image generation prompt in ENGLISH.
 
-要求：
-1. 分析帖子的主题、情感和关键元素
-2. 创建视觉上引人注目的图像描述
-3. 包含风格建议（现代、简约、活力、复古等）
-4. 建议合适的色调和氛围
-5. 构图适合社交媒体（吸引眼球、引发共鸣）
+Requirements:
+1. Analyze the theme, emotion, and key elements of the post
+2. Create a visually striking image description
+3. Include style suggestions (modern, minimalist, vibrant, vintage, cinematic, etc.)
+4. Suggest appropriate color tones and atmosphere
+5. Composition suitable for social media (eye-catching, engaging)
+6. The prompt MUST be in English for optimal AI image generation results
 
 ====================
-输出格式要求（极其重要）
+Output Format (CRITICAL)
 ====================
-你必须严格按照以下 JSON 格式输出，不要输出任何其他内容：
+You must strictly follow this JSON format, output nothing else:
 
 ${JSON_SCHEMA}
 
-注意事项：
-1. 输出必须是合法的 JSON 格式
-2. prompt 字段是最重要的，需要 1-3 句话描述完整的画面
-3. 使用中文
-4. 不要在 JSON 前后添加任何说明文字
-5. 不要使用 markdown 代码块包裹`;
+Important:
+1. Output must be valid JSON
+2. The "prompt" field is the most important - write 2-4 detailed sentences describing the complete scene
+3. ALL text must be in ENGLISH
+4. Do not add any explanation before or after the JSON
+5. Do not wrap in markdown code blocks`;
 
 /**
  * 解析并验证 JSON 输出
