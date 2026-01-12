@@ -332,10 +332,6 @@ router.post('/tweet', authMiddleware, async (req, res) => {
         return res.status(400).json({ error: '推文内容不能为空' });
     }
 
-    if (text.length > 280) {
-        return res.status(400).json({ error: '推文超过280字符限制' });
-    }
-
     try {
         // 获取用户的 access token
         const result = await pool.query(
