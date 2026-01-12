@@ -14,6 +14,7 @@ class GeneratorState {
             { id: 'trends', name: '热帖抓取', icon: '🔥', skippable: false },
             { id: 'content', name: '生成内容', icon: '✍️', skippable: false },
             { id: 'optimize', name: '优化内容', icon: '🚀', skippable: true },
+            { id: 'prompt', name: '图片描述', icon: '📝', skippable: true },
             { id: 'image', name: '生成图片', icon: '🖼️', skippable: true },
             { id: 'submit', name: '提交发布', icon: '📤', skippable: false }
         ];

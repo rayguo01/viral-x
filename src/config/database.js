@@ -48,10 +48,11 @@ async function initDatabase() {
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 status VARCHAR(20) NOT NULL DEFAULT 'pending',
                 current_step VARCHAR(30) NOT NULL DEFAULT 'trends',
-                workflow_config JSONB DEFAULT '{"steps":["trends","content","optimize","image","submit"]}',
+                workflow_config JSONB DEFAULT '{"steps":["trends","content","optimize","prompt","image","submit"]}',
                 trends_data JSONB,
                 content_data JSONB,
                 optimize_data JSONB,
+                prompt_data JSONB,
                 image_data JSONB,
                 final_content TEXT,
                 final_image_path VARCHAR(500),
@@ -59,6 +60,11 @@ async function initDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at TIMESTAMP
             )
+        `);
+
+        // 添加 prompt_data 列（如果不存在）
+        await client.query(`
+            ALTER TABLE post_tasks ADD COLUMN IF NOT EXISTS prompt_data JSONB
         `);
 
         // 创建帖子历史记录表

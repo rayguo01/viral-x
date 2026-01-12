@@ -49,8 +49,8 @@ function checkTrendsCache(source) {
 }
 
 // 工作流步骤配置
-const WORKFLOW_STEPS = ['trends', 'content', 'optimize', 'image', 'submit'];
-const SKIPPABLE_STEPS = ['optimize', 'image'];
+const WORKFLOW_STEPS = ['trends', 'content', 'optimize', 'prompt', 'image', 'submit'];
+const SKIPPABLE_STEPS = ['optimize', 'prompt', 'image'];
 
 // 获取当前进行中的任务
 router.get('/current', authenticate, async (req, res) => {
@@ -218,9 +218,19 @@ router.put('/:id', authenticate, async (req, res) => {
                 break;
 
             case 'saveOptimize':
-                // 保存优化的内容
+                // 保存优化的内容，进入 prompt 步骤
                 updateQuery = `UPDATE post_tasks SET
                     optimize_data = $1,
+                    current_step = 'prompt',
+                    updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2 RETURNING *`;
+                updateParams = [JSON.stringify(data), taskId];
+                break;
+
+            case 'savePrompt':
+                // 保存 Prompt 数据，进入 image 步骤
+                updateQuery = `UPDATE post_tasks SET
+                    prompt_data = $1,
                     current_step = 'image',
                     updated_at = CURRENT_TIMESTAMP
                     WHERE id = $2 RETURNING *`;
@@ -248,6 +258,17 @@ router.put('/:id', authenticate, async (req, res) => {
                 updateParams = [JSON.stringify(mergedOptimizeData), taskId];
                 break;
 
+            case 'updatePromptData':
+                // 仅更新 Prompt 数据，不改变步骤（用于中间保存）
+                const currentPromptData = task.prompt_data || {};
+                const mergedPromptData = { ...currentPromptData, ...data };
+                updateQuery = `UPDATE post_tasks SET
+                    prompt_data = $1,
+                    updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2 RETURNING *`;
+                updateParams = [JSON.stringify(mergedPromptData), taskId];
+                break;
+
             case 'updateImageData':
                 // 仅更新图片数据，不改变步骤（用于中间保存）
                 const currentImageData = task.image_data || {};
@@ -267,18 +288,22 @@ router.put('/:id', authenticate, async (req, res) => {
                 const currentIndex = WORKFLOW_STEPS.indexOf(task.current_step);
                 const nextStep = WORKFLOW_STEPS[currentIndex + 1];
 
-                // 标记该步骤为跳过
-                const skipData = step === 'optimize'
-                    ? { skipped: true }
-                    : { skipped: true };
-                const dataField = step === 'optimize' ? 'optimize_data' : 'image_data';
+                // 根据步骤确定数据字段
+                let dataField;
+                if (step === 'optimize') {
+                    dataField = 'optimize_data';
+                } else if (step === 'prompt') {
+                    dataField = 'prompt_data';
+                } else {
+                    dataField = 'image_data';
+                }
 
                 updateQuery = `UPDATE post_tasks SET
                     ${dataField} = $1,
                     current_step = $2,
                     updated_at = CURRENT_TIMESTAMP
                     WHERE id = $3 RETURNING *`;
-                updateParams = [JSON.stringify(skipData), nextStep, taskId];
+                updateParams = [JSON.stringify({ skipped: true }), nextStep, taskId];
                 break;
 
             case 'goBack':

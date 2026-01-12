@@ -42,6 +42,7 @@ class PostGenerator {
             'trends': window.TrendsPage,
             'content': window.ContentPage,
             'optimize': window.OptimizePage,
+            'prompt': window.PromptPage,
             'image': window.ImagePage,
             'submit': window.SubmitPage,
             'history': window.HistoryPage
