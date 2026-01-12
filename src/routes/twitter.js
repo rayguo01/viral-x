@@ -1,6 +1,9 @@
 const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
+const FormData = require('form-data');
 const { pool } = require('../config/database');
 const { authMiddleware } = require('../middleware/auth');
 
@@ -48,7 +51,7 @@ router.get('/login', (req, res) => {
         response_type: 'code',
         client_id: CLIENT_ID,
         redirect_uri: CALLBACK_URL,
-        scope: 'tweet.read tweet.write users.read offline.access',
+        scope: 'tweet.read tweet.write users.read media.write offline.access',
         state: state,
         code_challenge: challenge,
         code_challenge_method: 'S256'
@@ -83,7 +86,7 @@ router.get('/auth', authMiddleware, (req, res) => {
         response_type: 'code',
         client_id: CLIENT_ID,
         redirect_uri: CALLBACK_URL,
-        scope: 'tweet.read tweet.write users.read offline.access',
+        scope: 'tweet.read tweet.write users.read media.write offline.access',
         state: state,
         code_challenge: challenge,
         code_challenge_method: 'S256'
@@ -391,6 +394,100 @@ router.post('/tweet', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('发推文错误:', err);
         res.status(500).json({ error: '发推失败' });
+    }
+});
+
+// 上传媒体文件
+router.post('/upload', authMiddleware, async (req, res) => {
+    const { imagePath } = req.body;
+
+    if (!imagePath) {
+        return res.status(400).json({ error: '缺少图片路径' });
+    }
+
+    // 构建完整的文件路径
+    const fullPath = path.join(__dirname, '../../', imagePath);
+
+    if (!fs.existsSync(fullPath)) {
+        return res.status(400).json({ error: '图片文件不存在' });
+    }
+
+    try {
+        // 获取用户的 access token
+        const result = await pool.query(
+            'SELECT access_token, refresh_token, token_expires_at FROM twitter_credentials WHERE user_id = $1',
+            [req.user.userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: '未连接 Twitter 账号' });
+        }
+
+        let { access_token, refresh_token, token_expires_at } = result.rows[0];
+
+        // 检查 token 是否过期，尝试刷新
+        if (token_expires_at && new Date(token_expires_at) < new Date()) {
+            if (!refresh_token) {
+                return res.status(401).json({ error: 'Token 已过期，请重新授权' });
+            }
+
+            const refreshed = await refreshAccessToken(req.user.userId, refresh_token);
+            if (!refreshed) {
+                return res.status(401).json({ error: 'Token 刷新失败，请重新授权' });
+            }
+            access_token = refreshed.access_token;
+        }
+
+        // 读取图片文件
+        const imageBuffer = fs.readFileSync(fullPath);
+        const imageBase64 = imageBuffer.toString('base64');
+
+        // 获取文件 MIME 类型
+        const ext = path.extname(fullPath).toLowerCase();
+        const mimeTypes = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp'
+        };
+        const mimeType = mimeTypes[ext] || 'image/jpeg';
+
+        // 使用 Twitter v2 媒体上传 API
+        const formData = new FormData();
+        formData.append('media', imageBuffer, {
+            filename: path.basename(fullPath),
+            contentType: mimeType
+        });
+
+        const uploadResponse = await fetch('https://api.x.com/2/media/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                ...formData.getHeaders()
+            },
+            body: formData
+        });
+
+        if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json();
+            console.error('媒体上传失败:', errorData);
+            return res.status(uploadResponse.status).json({
+                error: '媒体上传失败',
+                detail: errorData
+            });
+        }
+
+        const uploadData = await uploadResponse.json();
+        console.log('媒体上传成功:', uploadData);
+
+        res.json({
+            success: true,
+            mediaId: uploadData.data?.media_id_string || uploadData.media_id_string
+        });
+    } catch (err) {
+        console.error('媒体上传错误:', err);
+        res.status(500).json({ error: '媒体上传失败: ' + err.message });
     }
 });
 

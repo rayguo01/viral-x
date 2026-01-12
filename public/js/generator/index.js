@@ -372,6 +372,20 @@ class PostGenerator {
         }
     }
 
+    // 上传媒体到 Twitter
+    async uploadMedia(imagePath) {
+        try {
+            const result = await this.api('/api/twitter/upload', {
+                method: 'POST',
+                body: JSON.stringify({ imagePath })
+            });
+            return result.mediaId;
+        } catch (error) {
+            console.error('媒体上传失败:', error);
+            throw error;
+        }
+    }
+
     // 发布推文
     async postTweet(text, mediaIds = []) {
         try {

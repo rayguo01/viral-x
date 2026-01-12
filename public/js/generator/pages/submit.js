@@ -207,10 +207,14 @@ class SubmitPage {
 
         const task = this.state.task;
         const finalContent = task?.optimize_data?.optimizedVersion || task?.content_data?.versionC || '';
+        const imagePath = task?.image_data?.imagePath;
 
-        const confirmed = await this.generator.showConfirm(
-            `确定要发布到 X 吗？\n\n内容预览：\n${finalContent.substring(0, 100)}${finalContent.length > 100 ? '...' : ''}`
-        );
+        const hasImage = imagePath && !task?.image_data?.skipped;
+        const confirmMsg = hasImage
+            ? `确定要发布到 X 吗？（含配图）\n\n内容预览：\n${finalContent.substring(0, 100)}${finalContent.length > 100 ? '...' : ''}`
+            : `确定要发布到 X 吗？\n\n内容预览：\n${finalContent.substring(0, 100)}${finalContent.length > 100 ? '...' : ''}`;
+
+        const confirmed = await this.generator.showConfirm(confirmMsg);
         if (!confirmed) return;
 
         this.isPublishing = true;
@@ -221,7 +225,24 @@ class SubmitPage {
         }
 
         try {
-            const result = await this.generator.postTweet(finalContent);
+            let mediaIds = [];
+
+            // 如果有图片，先上传
+            if (hasImage) {
+                if (btn) {
+                    btn.innerHTML = '<span class="spinner"></span> 上传图片...';
+                }
+                const mediaId = await this.generator.uploadMedia(imagePath);
+                if (mediaId) {
+                    mediaIds.push(mediaId);
+                }
+            }
+
+            // 发布推文
+            if (btn) {
+                btn.innerHTML = '<span class="spinner"></span> 发布中...';
+            }
+            const result = await this.generator.postTweet(finalContent, mediaIds);
             this.generator.showToast('发布成功！', 'success');
 
             // 显示成功状态
