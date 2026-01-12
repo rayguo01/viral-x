@@ -90,7 +90,7 @@ function callClaudeCLI(userInput: string): Promise<string> {
 ====================
 ${userInput}
 
-请对以上内容进行爆款要素验证，严格按照 JSON 格式输出验证报告和优化版本。只输出 JSON，不要任何其他内容。`;
+请对以上内容进行爆款要素优化，严格按照 JSON 格式输出验证报告和优化版本。只输出 JSON，不要任何其他内容。`;
 
     const child = spawn('claude', [
       '--output-format', 'text'
@@ -195,7 +195,7 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
     console.log(`内容预览: ${input.substring(0, 100)}${input.length > 100 ? '...' : ''}`);
 
     // 调用 Claude CLI 验证内容
-    console.log('🤖 正在使用 Claude 进行爆款要素验证...');
+    console.log('🤖 正在使用 Claude 进行爆款要素优化...');
     const rawOutput = await callClaudeCLI(input);
 
     console.log('📋 正在解析 JSON 输出...');
