@@ -294,8 +294,7 @@ class ContentPage {
                 log: (data) => {
                     const logOutput = document.getElementById('log-output');
                     if (logOutput) {
-                        logOutput.textContent += data.message;
-                        logOutput.scrollTop = logOutput.scrollHeight;
+                        this.appendLog(logOutput, data.message);
                     }
                 },
                 report: (data) => {
@@ -435,6 +434,43 @@ class ContentPage {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * 格式化追加日志到输出框
+     */
+    appendLog(logOutput, message) {
+        if (!message) return;
+
+        // 按行分割
+        const lines = message.split('\n');
+
+        lines.forEach(line => {
+            if (!line.trim()) return;
+
+            const span = document.createElement('span');
+            span.className = 'log-line';
+
+            // 根据内容判断样式
+            if (line.includes('✅') || line.includes('成功') || line.includes('完成')) {
+                span.classList.add('success');
+            } else if (line.includes('❌') || line.includes('错误') || line.includes('失败') || line.includes('Error')) {
+                span.classList.add('error');
+            } else if (line.includes('⚠') || line.includes('警告') || line.includes('Warning')) {
+                span.classList.add('warning');
+            } else if (line.includes('🤖') || line.includes('📊') || line.includes('📋') || line.includes('🔥') || line.includes('✨')) {
+                span.classList.add('emoji');
+            } else if (line.includes('正在') || line.includes('开始') || line.includes('执行')) {
+                span.classList.add('highlight');
+            } else {
+                span.classList.add('info');
+            }
+
+            span.textContent = line + '\n';
+            logOutput.appendChild(span);
+        });
+
+        logOutput.scrollTop = logOutput.scrollHeight;
     }
 
     destroy() {
