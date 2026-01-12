@@ -67,6 +67,33 @@ async function initDatabase() {
             ALTER TABLE post_tasks ADD COLUMN IF NOT EXISTS prompt_data JSONB
         `);
 
+        // 创建 Twitter OAuth 凭证表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS twitter_credentials (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+                twitter_user_id VARCHAR(100),
+                twitter_username VARCHAR(100),
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                token_expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 为 users 表添加 Twitter 登录支持
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS twitter_id VARCHAR(100) UNIQUE
+        `);
+        await client.query(`
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)
+        `);
+        // 允许 password_hash 为空（Twitter 登录用户不需要密码）
+        await client.query(`
+            ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL
+        `);
+
         // 创建帖子历史记录表
         await client.query(`
             CREATE TABLE IF NOT EXISTS post_history (

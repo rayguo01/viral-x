@@ -1802,6 +1802,161 @@
 }
 
 /* ===================================
+   Twitter 集成样式
+   =================================== */
+.twitter-section {
+    margin-bottom: 24px;
+}
+
+.twitter-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface-elevated);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+}
+
+.twitter-status.loading {
+    color: var(--text-muted);
+}
+
+.twitter-status.connected {
+    background: linear-gradient(135deg, rgba(29, 161, 242, 0.08) 0%, rgba(29, 161, 242, 0.02) 100%);
+    border-color: rgba(29, 161, 242, 0.3);
+}
+
+.twitter-status.disconnected {
+    background: var(--surface-elevated);
+}
+
+.twitter-status.error {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--error);
+}
+
+.twitter-icon {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1DA1F2;
+}
+
+.twitter-status .status-text {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.twitter-status .status-text strong {
+    color: var(--text-primary);
+}
+
+.btn-twitter {
+    background: #1DA1F2;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--transition-normal);
+}
+
+.btn-twitter:hover {
+    background: #1a91da;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(29, 161, 242, 0.3);
+}
+
+.btn-twitter:disabled {
+    background: #8ed0f9;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-twitter .twitter-icon {
+    color: white;
+    font-size: 16px;
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+}
+
+.twitter-publish {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.twitter-warning {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: var(--radius-md);
+    color: var(--warning);
+    font-size: 13px;
+}
+
+.twitter-hint {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.twitter-success {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: var(--success);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.view-tweet-link {
+    color: #1DA1F2;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.view-tweet-link:hover {
+    text-decoration: underline;
+}
+
+/* Spinner 动画 */
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ===================================
    打印样式
    =================================== */
 @media print {

@@ -337,6 +337,58 @@ class PostGenerator {
         });
     }
 
+    // ========== Twitter API ==========
+
+    // 获取 Twitter 连接状态
+    async getTwitterStatus() {
+        try {
+            return await this.api('/api/twitter/status');
+        } catch (error) {
+            console.error('获取 Twitter 状态失败:', error);
+            return { connected: false };
+        }
+    }
+
+    // 获取 Twitter 授权链接
+    async getTwitterAuthUrl() {
+        try {
+            const data = await this.api('/api/twitter/auth');
+            return data.authUrl;
+        } catch (error) {
+            this.showToast('获取授权链接失败: ' + error.message, 'error');
+            throw error;
+        }
+    }
+
+    // 断开 Twitter 连接
+    async disconnectTwitter() {
+        try {
+            await this.api('/api/twitter/disconnect', { method: 'DELETE' });
+            this.showToast('已断开 Twitter 连接', 'success');
+            return true;
+        } catch (error) {
+            this.showToast('断开连接失败: ' + error.message, 'error');
+            return false;
+        }
+    }
+
+    // 发布推文
+    async postTweet(text, mediaIds = []) {
+        try {
+            const body = { text };
+            if (mediaIds.length > 0) {
+                body.mediaIds = mediaIds;
+            }
+            const result = await this.api('/api/twitter/tweet', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            return result;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     // Markdown 格式化
     formatMarkdown(text) {
         if (!text) return '';

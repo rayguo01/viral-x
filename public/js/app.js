@@ -13,12 +13,67 @@ class App {
         this.bindAuthEvents();
         this.bindThemeEvents();
 
+        // 检查 URL 参数（处理 Twitter 登录回调）
+        this.handleUrlParams();
+
         if (this.token) {
             this.showGeneratorPage();
             this.initGenerator();
         } else {
             this.showAuthPage();
         }
+    }
+
+    // 处理 URL 参数（Twitter 登录回调）
+    handleUrlParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+
+        // Twitter 登录成功
+        if (urlParams.get('twitter_login') === 'success') {
+            const token = urlParams.get('token');
+            const username = urlParams.get('username');
+
+            if (token && username) {
+                this.token = token;
+                this.username = username;
+                localStorage.setItem('token', token);
+                localStorage.setItem('username', username);
+
+                // 清除 URL 参数
+                window.history.replaceState({}, document.title, '/');
+
+                this.showToast(`欢迎, @${username}!`, 'success');
+            }
+        }
+
+        // Twitter 错误
+        if (urlParams.get('twitter_error')) {
+            const error = urlParams.get('twitter_error');
+            this.showToast(`Twitter 登录失败: ${error}`, 'error');
+            // 清除 URL 参数
+            window.history.replaceState({}, document.title, '/');
+        }
+
+        // Twitter 连接成功（绑定模式）
+        if (urlParams.get('twitter_connected') === 'true') {
+            const username = urlParams.get('twitter_username');
+            this.showToast(`已连接 @${username}`, 'success');
+            window.history.replaceState({}, document.title, '/');
+        }
+    }
+
+    // 显示提示
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
     // 主题相关方法
@@ -88,6 +143,37 @@ class App {
                 window.location.hash = '#/history';
             });
         }
+
+        // Twitter 登录按钮
+        const twitterLoginBtn = document.getElementById('twitter-login-btn');
+        if (twitterLoginBtn) {
+            twitterLoginBtn.addEventListener('click', () => this.twitterLogin());
+        }
+    }
+
+    // Twitter 登录
+    async twitterLogin() {
+        const btn = document.getElementById('twitter-login-btn');
+        if (btn.disabled) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> 正在跳转...';
+
+        try {
+            const res = await fetch('/api/twitter/login');
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || '获取授权链接失败');
+            }
+
+            // 跳转到 Twitter 授权页面
+            window.location.href = data.authUrl;
+        } catch (err) {
+            this.showToast(err.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<svg class="x-logo" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> 使用 X 登录';
+        }
     }
 
     switchTab(tab) {
@@ -118,6 +204,11 @@ class App {
         // 初始化工作流组件
         window.workflowComponent = new WorkflowComponent('workflow-container');
         window.workflowComponent.render();
+
+        // 确保 postGenerator 使用最新的 token
+        if (window.postGenerator) {
+            window.postGenerator.token = this.token;
+        }
 
         // 初始化生成器
         window.postGenerator.init();

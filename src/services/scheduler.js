@@ -17,6 +17,40 @@ class Scheduler {
     constructor() {
         this.jobs = new Map();
         this.isRunning = false;
+        this.maxRetries = 3;        // 最大重试次数
+        this.retryDelay = 5000;     // 重试间隔（毫秒）
+    }
+
+    /**
+     * 延迟函数
+     * @param {number} ms - 毫秒
+     */
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * 带重试的执行单个 skill 抓取
+     * @param {string} skillId - x-trends 或 tophub-trends
+     * @param {number} attempt - 当前尝试次数
+     * @returns {Promise<string>} 抓取结果
+     */
+    async executeSkillWithRetry(skillId, attempt = 1) {
+        try {
+            return await this.executeSkill(skillId);
+        } catch (err) {
+            const isRetryable = err.message.includes('JSON 解析失败') ||
+                               err.message.includes('执行失败') ||
+                               err.message.includes('未找到报告文件');
+
+            if (isRetryable && attempt < this.maxRetries) {
+                console.log(`[调度器] ${skillId} 第 ${attempt} 次失败，${this.retryDelay / 1000}秒后重试...`);
+                console.log(`[调度器] 失败原因: ${err.message.substring(0, 100)}...`);
+                await this.sleep(this.retryDelay);
+                return this.executeSkillWithRetry(skillId, attempt + 1);
+            }
+            throw err;
+        }
     }
 
     /**
@@ -123,11 +157,11 @@ class Scheduler {
 
         for (const skillId of skills) {
             try {
-                const report = await this.executeSkill(skillId);
+                const report = await this.executeSkillWithRetry(skillId);
                 skillCache.set(skillId, report);
                 console.log(`[调度器] ${skillId} 缓存已更新`);
             } catch (err) {
-                console.error(`[调度器] ${skillId} 抓取失败:`, err.message);
+                console.error(`[调度器] ${skillId} 抓取失败（已重试 ${this.maxRetries} 次）:`, err.message);
                 // 抓取失败不影响其他 skill
             }
         }

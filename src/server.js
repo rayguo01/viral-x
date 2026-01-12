@@ -9,6 +9,7 @@ const authRoutes = require('./routes/auth');
 const sessionsRoutes = require('./routes/sessions');
 const skillsRoutes = require('./routes/skills');
 const tasksRoutes = require('./routes/tasks');
+const twitterRoutes = require('./routes/twitter');
 const { setupWebSocket } = require('./websocket/handler');
 const scheduler = require('./services/scheduler');
 
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sessions', sessionsRoutes);
 app.use('/api/skills', skillsRoutes);
 app.use('/api/tasks', tasksRoutes);
+app.use('/api/twitter', twitterRoutes);
 
 // 静态文件访问 - outputs 目录（用于图片访问）
 app.use('/outputs', express.static(path.join(__dirname, '../outputs')));

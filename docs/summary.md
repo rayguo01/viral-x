@@ -1,8 +1,103 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.6.1
+## 版本: v2.7.0
 
 ## 完成的工作
+
+### 3.15 Twitter OAuth 2.0 集成 (v2.7.0)
+
+**功能概述**：集成 Twitter OAuth 2.0 认证，支持用户授权后直接通过应用发布推文到 X 平台。
+
+**核心功能**：
+- 用户通过 OAuth 2.0 授权连接 Twitter 账号
+- 支持代表用户发布推文（文字 + 可选图片）
+- 自动刷新过期的 access token
+- 断开 Twitter 连接功能
+
+**技术实现**：
+
+| 文件 | 说明 |
+|------|------|
+| `src/routes/twitter.js` | Twitter OAuth 路由（授权、回调、发推、状态查询） |
+| `src/config/database.js` | 新增 `twitter_credentials` 表存储用户 token |
+| `src/server.js` | 注册 `/api/twitter` 路由 |
+| `.env.example` | 添加 Twitter OAuth 配置项 |
+
+**API 端点**：
+
+| 方法 | 路径 | 功能 |
+|------|------|------|
+| GET | /api/twitter/auth | 获取 OAuth 授权 URL |
+| GET | /api/twitter/callback | OAuth 回调处理 |
+| GET | /api/twitter/status | 查询 Twitter 连接状态 |
+| DELETE | /api/twitter/disconnect | 断开 Twitter 连接 |
+| POST | /api/twitter/tweet | 发布推文 |
+
+**数据库表结构**：
+```sql
+CREATE TABLE twitter_credentials (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    twitter_user_id VARCHAR(100),
+    twitter_username VARCHAR(100),
+    access_token TEXT NOT NULL,
+    refresh_token TEXT,
+    token_expires_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**OAuth 2.0 流程**：
+1. 前端调用 `/api/twitter/auth` 获取授权 URL
+2. 用户跳转到 Twitter 授权页面
+3. 授权后回调到 `/api/twitter/callback`
+4. 后端交换 code 获取 access_token 并存储
+5. 前端可调用 `/api/twitter/tweet` 发布推文
+
+**安全特性**：
+- PKCE (Proof Key for Code Exchange) 防止授权码拦截攻击
+- State 参数防止 CSRF 攻击
+- Token 自动刷新机制
+
+**环境变量配置**：
+```env
+TWITTER_CLIENT_ID=你的Client_ID
+TWITTER_CLIENT_SECRET=你的Client_Secret
+TWITTER_CALLBACK_URL=http://localhost:3000/api/twitter/callback
+```
+
+**两种使用模式**：
+
+| 模式 | 说明 | API |
+|------|------|-----|
+| Twitter 登录 | 用户直接用 Twitter 账号登录，无需注册 | `/api/twitter/login` |
+| Twitter 绑定 | 已登录用户绑定 Twitter 账号用于发推 | `/api/twitter/auth` |
+
+**登录页面**：
+- 支持用户名密码登录
+- 支持「用 Twitter 登录」一键登录
+- Twitter 登录自动创建用户账号
+
+**提交页面**：
+
+| 状态 | 显示内容 |
+|------|----------|
+| 未连接 | 显示「连接 Twitter」按钮 |
+| 已连接 | 显示 @用户名、「发布到 X」按钮、「断开连接」按钮 |
+| 发布成功 | 显示成功提示和「查看推文」链接 |
+
+**修改的文件**：
+- `src/routes/twitter.js` - 添加登录模式支持
+- `src/config/database.js` - users 表添加 twitter_id、avatar_url 字段
+- `public/index.html` - 登录页添加 Twitter 登录按钮
+- `public/js/app.js` - 处理 Twitter 登录回调
+- `public/js/generator/index.js` - 添加 Twitter API 方法
+- `public/js/generator/pages/submit.js` - 添加 Twitter 连接和发布 UI
+- `public/css/style.css` - 添加登录页 Twitter 按钮样式
+- `public/css/generator.css` - 添加提交页 Twitter 相关样式
+
+---
 
 ### 3.14 编辑框自动高度调整 (v2.6.1)
 
