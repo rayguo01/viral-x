@@ -1,8 +1,28 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.9.12
+## 版本: v2.9.13
 
 ## 完成的工作
+
+### 3.33 移除 8 小时传统模式代码 (v2.9.13)
+
+**功能概述**：移除所有 domain-trends 8 小时传统模式相关代码，系统现在只支持 2 小时轮换模式。
+
+**删除的代码**：
+
+| 文件 | 删除内容 |
+|------|----------|
+| `src/services/scheduler.js` | `isDomainCacheValid()`、`isDomainTrendsFetchHour()` 函数、传统模式分支、8小时启动日志 |
+| `src/services/skillCache.js` | `getDomainTrendsHours()` 函数、`get()`/`set()`/`cleanupOldData()`/`getAvailableHours()` 中的传统模式分支 |
+| `src/services/trendsDb.js` | `get8HourWindowKey()` 函数 |
+
+**简化的逻辑**：
+
+- 调度器只检查轮换模式配置
+- 缓存只存储/读取 2 小时窗口数据
+- 时间轴只显示 2 小时间隔点
+
+---
 
 ### 3.32 修复轮换模式缓存持久化和恢复 (v2.9.12)
 

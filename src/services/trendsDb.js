@@ -25,20 +25,6 @@ class TrendsDbService {
     }
 
     /**
-     * 获取8小时窗口的 hourKey（用于传统模式）
-     * @returns {string} 格式: YYYY-MM-DD-HH (其中 HH 为 00, 08, 16)
-     */
-    get8HourWindowKey() {
-        const now = new Date();
-        const windowStart = Math.floor(now.getHours() / 8) * 8;
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hour = String(windowStart).padStart(2, '0');
-        return `${year}-${month}-${day}-${hour}`;
-    }
-
-    /**
      * 获取2小时窗口的 hourKey（用于轮换模式）
      * @returns {string} 格式: YYYY-MM-DD-HH (其中 HH 为偶数)
      */

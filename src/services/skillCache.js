@@ -130,7 +130,6 @@ class SkillCache {
      * 清理过期的旧数据
      * - 普通趋势：清理超过12小时的数据
      * - domain-trends 轮换模式：保留所有 2 小时窗口点
-     * - domain-trends 传统模式：只保留 0, 8, 16 三个时间点
      * @param {string} skillId
      */
     cleanupOldData(skillId) {
@@ -146,11 +145,6 @@ class SkillCache {
             for (let h = 0; h < 24; h += 2) {
                 validHours.add(String(h).padStart(2, '0'));
             }
-        } else if (skillId.startsWith('domain-trends:')) {
-            // domain-trends 传统模式: 只保留 0, 8, 16 三个固定时间点
-            validHours.add('00');
-            validHours.add('08');
-            validHours.add('16');
         } else {
             // 普通趋势：保留过去12个小时
             for (let i = 0; i < this.maxHours; i++) {
@@ -179,7 +173,6 @@ class SkillCache {
      * 获取当前时间窗口的缓存
      * - 普通趋势：当前小时
      * - domain-trends 轮换模式：当前 2 小时窗口
-     * - domain-trends 传统模式：当前 8 小时窗口
      * @param {string} skillId
      * @returns {object|null} 缓存内容或 null
      */
@@ -190,10 +183,6 @@ class SkillCache {
         if (skillId.includes(':group')) {
             // 轮换模式：2 小时窗口
             const windowStart = Math.floor(currentHour / 2) * 2;
-            hourKey = String(windowStart).padStart(2, '0');
-        } else if (skillId.startsWith('domain-trends:')) {
-            // 传统模式：8 小时窗口
-            const windowStart = Math.floor(currentHour / 8) * 8;
             hourKey = String(windowStart).padStart(2, '0');
         } else {
             // 普通趋势：当前小时
@@ -228,7 +217,6 @@ class SkillCache {
      * 获取所有可用的小时列表（按时间倒序）
      * - 普通趋势：返回过去12个小时
      * - domain-trends 轮换模式：返回过去12个2小时时间点
-     * - domain-trends 传统模式：返回过去3个8小时时间点
      * @param {string} skillId
      * @returns {Array<{hourKey: string, generatedAt: number, displayTime: string}>}
      */
@@ -240,11 +228,6 @@ class SkillCache {
         // domain-trends 轮换模式（包含 :group）使用 2 小时间隔
         if (skillId.includes(':group')) {
             return this.getDomainTrendsRotationHours(hourlyData, currentHour);
-        }
-
-        // domain-trends 传统模式使用 8 小时间隔
-        if (skillId.startsWith('domain-trends:')) {
-            return this.getDomainTrendsHours(hourlyData, currentHour);
         }
 
         // 普通趋势：生成过去12个小时的列表
@@ -300,42 +283,9 @@ class SkillCache {
     }
 
     /**
-     * 获取 domain-trends 传统模式的8小时间隔时间点
-     * 固定时间点：0:00, 8:00, 16:00
-     * @param {Map} hourlyData
-     * @param {number} currentHour
-     * @returns {Array}
-     */
-    getDomainTrendsHours(hourlyData, currentHour) {
-        const hours = [];
-
-        // 找到当前或最近的8小时窗口起点
-        let currentWindow = Math.floor(currentHour / 8) * 8;
-
-        // 返回最近3个时间点（覆盖24小时）
-        for (let i = 0; i < 3; i++) {
-            let hour = currentWindow - (i * 8);
-            if (hour < 0) hour += 24;
-            const hourKey = String(hour).padStart(2, '0');
-
-            const cached = hourlyData.get(hourKey);
-            hours.push({
-                hourKey,
-                displayTime: `${hourKey}:00`,
-                hasData: !!cached,
-                generatedAt: cached?.generatedAt || null,
-                isCurrent: i === 0
-            });
-        }
-
-        return hours;
-    }
-
-    /**
      * 设置缓存
      * - 普通趋势：存储到当前小时
      * - domain-trends 轮换模式：存储到当前2小时窗口起点 (00, 02, 04, ...)
-     * - domain-trends 传统模式：存储到当前8小时窗口起点 (00, 08, 16)
      * @param {string} skillId
      * @param {string} content
      */
@@ -346,10 +296,6 @@ class SkillCache {
         if (skillId.includes(':group')) {
             // domain-trends 轮换模式存储到 2 小时窗口起点
             const windowStart = Math.floor(currentHour / 2) * 2;
-            hourKey = String(windowStart).padStart(2, '0');
-        } else if (skillId.startsWith('domain-trends:')) {
-            // domain-trends 传统模式存储到 8 小时窗口起点
-            const windowStart = Math.floor(currentHour / 8) * 8;
             hourKey = String(windowStart).padStart(2, '0');
         } else {
             hourKey = this.getHourKey();
