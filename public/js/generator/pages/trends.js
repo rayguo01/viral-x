@@ -249,9 +249,9 @@ class TrendsPage {
         const content = document.getElementById('trends-content');
         if (!content) return;
 
-        // domain-trends 每8小时抓取一次
+        // domain-trends 每2小时轮换抓取
         const scheduleText = this.activeTab === 'domain-trends'
-            ? '每8小时（0:01, 8:01, 16:01）'
+            ? '每2小时轮换'
             : '每小时第1分钟';
 
         content.innerHTML = `

@@ -1,8 +1,24 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.9.13
+## 版本: v2.9.14
 
 ## 完成的工作
+
+### 3.34 前端清理和预设显示修复 (v2.9.14)
+
+**功能概述**：清理前端剩余的 8 小时文案，修复领域预设列表重复显示问题。
+
+**修复的问题**：
+
+1. **前端文案修复** (`public/js/generator/pages/trends.js`)：
+   - `showWaitingMessage()` 中的"每8小时"改为"每2小时轮换"
+
+2. **预设列表重复** (`src/routes/skills.js`)：
+   - 问题：领域选择显示"AI趋势"和"AI趋势（100kol轮换）"两个标签
+   - 原因：API 读取了 `ai.json` 和 `ai-kol-groups.json` 两个文件
+   - 修复：过滤掉 `-kol-groups.json` 和 `-kols.json` 配置文件
+
+---
 
 ### 3.33 移除 8 小时传统模式代码 (v2.9.13)
 

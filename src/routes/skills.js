@@ -90,7 +90,12 @@ router.get('/domain-trends/presets', authenticate, async (req, res) => {
             return res.json({ success: true, presets: [] });
         }
 
-        const files = fs.readdirSync(presetsDir).filter(f => f.endsWith('.json'));
+        // 只读取主预设文件（排除 -kol-groups.json 和 -kols.json 等配置文件）
+        const files = fs.readdirSync(presetsDir).filter(f =>
+            f.endsWith('.json') &&
+            !f.includes('-kol-groups') &&
+            !f.includes('-kols')
+        );
         const presets = files.map(file => {
             const content = fs.readFileSync(path.join(presetsDir, file), 'utf-8');
             const config = JSON.parse(content);
