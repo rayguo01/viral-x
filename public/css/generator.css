@@ -343,6 +343,96 @@
 }
 
 /* ===================================
+   小时时间轴
+   =================================== */
+.hour-timeline {
+    margin-bottom: 20px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.timeline-scroll {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.timeline-scroll::-webkit-scrollbar {
+    height: 4px;
+}
+
+.timeline-scroll::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 2px;
+}
+
+.timeline-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 2px;
+}
+
+.hour-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    flex-shrink: 0;
+    min-width: 60px;
+}
+
+.hour-btn:hover:not([disabled]) {
+    border-color: var(--primary);
+    background: var(--bg-subtle);
+}
+
+.hour-btn.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+}
+
+.hour-btn.active .hour-time,
+.hour-btn.active .hour-label {
+    color: white;
+}
+
+.hour-btn.no-data {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.hour-btn.current {
+    border-width: 2px;
+}
+
+.hour-time {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.hour-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.timeline-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 12px;
+}
+
+/* ===================================
    话题列表/选题建议
    =================================== */
 .topic-list {
@@ -396,6 +486,73 @@
     font-weight: 700;
     color: var(--text-primary);
     flex: 1;
+}
+
+.topic-score {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.topic-score.score-high {
+    background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+    color: white;
+}
+
+.topic-score.score-medium {
+    background: linear-gradient(135deg, #ffa726, #fb8c00);
+    color: white;
+}
+
+.topic-score.score-low {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+.source-tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    background: var(--bg-tertiary);
+    color: var(--primary);
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+}
+
+.topic-source {
+    display: flex;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.topic-link {
+    margin-top: 8px;
+    padding-left: 46px;
+}
+
+.topic-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 12px;
+    background: var(--bg-tertiary);
+    color: var(--primary);
+    border-radius: 16px;
+    border: 1px solid var(--border-light);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.topic-link-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-1px);
 }
 
 .topic-meta {

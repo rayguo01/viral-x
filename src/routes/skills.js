@@ -82,7 +82,55 @@ function getNextFetchTime() {
     return next.toLocaleString('zh-CN');
 }
 
-// 读取趋势缓存（纯读取，不触发执行）
+// 获取指定 skill 的可用小时列表
+router.get('/:skillId/hours', authenticate, async (req, res) => {
+    const { skillId } = req.params;
+
+    // 只支持趋势类 skill
+    const trendSkills = ['x-trends', 'tophub-trends'];
+    if (!trendSkills.includes(skillId)) {
+        return res.status(400).json({ error: '此 skill 不支持历史数据' });
+    }
+
+    const hours = skillCache.getAvailableHours(skillId);
+    res.json({
+        success: true,
+        hours
+    });
+});
+
+// 读取指定小时的趋势缓存
+router.get('/:skillId/cached/:hourKey', authenticate, async (req, res) => {
+    const { skillId, hourKey } = req.params;
+
+    // 只支持趋势类 skill
+    const trendSkills = ['x-trends', 'tophub-trends'];
+    if (!trendSkills.includes(skillId)) {
+        return res.status(400).json({ error: '此 skill 不支持缓存读取' });
+    }
+
+    // 读取指定小时的缓存
+    const cached = skillCache.getByHour(skillId, hourKey);
+
+    if (cached) {
+        return res.json({
+            success: true,
+            content: cached.content,
+            generatedAt: new Date(cached.generatedAt).toLocaleString('zh-CN'),
+            hourKey: cached.hourKey,
+            fromCache: true
+        });
+    }
+
+    // 无缓存时返回空
+    return res.json({
+        success: false,
+        message: `${hourKey}:00 暂无数据`,
+        hourKey
+    });
+});
+
+// 读取趋势缓存（纯读取，不触发执行）- 当前小时
 router.get('/:skillId/cached', authenticate, async (req, res) => {
     const { skillId } = req.params;
 
@@ -92,7 +140,7 @@ router.get('/:skillId/cached', authenticate, async (req, res) => {
         return res.status(400).json({ error: '此 skill 不支持缓存读取' });
     }
 
-    // 读取缓存
+    // 读取当前小时的缓存
     const cached = skillCache.get(skillId);
 
     if (cached) {
@@ -100,6 +148,7 @@ router.get('/:skillId/cached', authenticate, async (req, res) => {
             success: true,
             content: cached.content,
             generatedAt: new Date(cached.generatedAt).toLocaleString('zh-CN'),
+            hourKey: cached.hourKey,
             fromCache: true
         });
     }

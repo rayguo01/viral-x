@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { parseRobustJSON } from '../utils/json-parser';
 
 // 1. Define Output Paths
 const projectRoot = path.resolve(__dirname, '../../');
@@ -113,27 +114,23 @@ function callClaudeCLI(prompt: string): Promise<string> {
   });
 }
 
-// JSON Schema 定义
+// JSON Schema 定义（合并高潜力话题和选题建议）
 const JSON_SCHEMA = `
 {
   "overview": "热点概览，简要总结当前热门话题的整体趋势",
-  "highPotentialTopics": [
-    {
-      "rank": 1,
-      "topic": "话题名称",
-      "source": "来源平台",
-      "score": "潜力评分（高/中/低）",
-      "reason": "原因说明"
-    }
-  ],
   "categories": {
     "分类名称": ["话题1", "话题2"]
   },
   "suggestions": [
     {
-      "topic": "原始话题",
+      "rank": 1,
+      "topic": "原始话题名称",
+      "source": "来源平台（如：知乎、微博、B站等）",
+      "link": "原始话题链接（从输入数据中提取）",
+      "score": "潜力评分（高/中/低）",
+      "reason": "为什么这个话题有潜力（简要说明）",
       "angle": "选题角度/标题建议",
-      "whyEffective": "为什么有效，流量潜力解释",
+      "whyEffective": "为什么这个选题角度有效，流量潜力解释",
       "directions": ["创作方向1", "创作方向2", "创作方向3"]
     }
   ],
@@ -155,29 +152,43 @@ ${itemsText}
 
 请执行以下任务：
 
-1. **流量潜力分析**：识别哪些话题具有最高的病毒式传播潜力。关注那些能引起强烈好奇心、争议性或紧迫感的话题。
+1. **流量潜力分析 + 选题建议**：
+   - 从上述话题中筛选出 5-8 个最具病毒式传播潜力的话题
+   - 关注那些能引起强烈好奇心、争议性或紧迫感的话题
+   - **每个高潜力话题都必须给出具体的选题角度和创作方向**
+   - 保留话题的来源平台信息（如：知乎、微博、B站等）
 
-2. **话题分类**：将这些热门话题按类别分组（如：科技、娱乐、政治、体育、社会热点等）。
+2. **话题分类**：将所有热门话题按类别分组（如：科技、娱乐、政治、体育、社会热点等）。
 
-3. **选题建议**：基于高潜力话题，为内容创作者提供 5 个具体的选题角度/标题建议。
-
-4. **内容策略**：针对每个建议，提供简短的内容创作方向指导。
+3. **内容策略总结**：提供整体内容策略建议。
 
 ====================
 输出格式要求（极其重要）
 ====================
-你必须严格按照以下 JSON 格式输出，不要输出任何其他内容：
 
+**必须使用 XML 标签分隔思维过程和 JSON 结果，避免解析错误**
+
+## 格式要求
+
+<reasoning>
+你的分析过程...
+- 快速浏览热门话题
+- 筛选高潜力话题
+- 为每个高潜力话题构思选题角度
+</reasoning>
+
+<result>
 ${JSON_SCHEMA}
+</result>
 
-注意事项：
-1. 输出必须是合法的 JSON 格式
-2. highPotentialTopics 至少包含 5 个高潜力话题，包含 source 字段
-3. categories 至少包含 3 个分类
-4. suggestions 必须包含 5 个选题建议
-5. 每个 suggestion 的 directions 必须是包含 2-4 个创作方向的数组，每个方向是具体可执行的内容建议
-6. 不要在 JSON 前后添加任何说明文字
-7. 不要使用 markdown 代码块包裹`;
+## 注意事项
+1. <result> 标签内必须是合法的 JSON 格式
+2. suggestions 必须包含 5-8 个高潜力话题，每个都要有完整的选题建议
+3. 每个 suggestion 必须包含: rank, topic, source, link, score, reason, angle, whyEffective, directions
+4. categories 至少包含 3 个分类
+5. 每个 suggestion 的 directions 必须是包含 2-4 个创作方向的数组
+6. 不要在 <result> 标签内添加 markdown 代码块
+7. 所有标点符号必须使用英文半角字符（不要使用中文全角标点如：，。；等）`;
 
   console.log('🤖 正在使用 Claude CLI 分析热榜数据...');
 
@@ -186,36 +197,30 @@ ${JSON_SCHEMA}
 
 /**
  * 解析并验证 JSON 输出
+ * 使用健壮的 JSON 解析器，支持多层回退
  */
 function parseAndValidateJSON(output: string): any {
-  let jsonStr = output.trim();
-
-  // 移除可能的 markdown 代码块
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    jsonStr = jsonMatch[1].trim();
-  }
-
-  // 找到 JSON 对象的开始和结束
-  const startIndex = jsonStr.indexOf('{');
-  const endIndex = jsonStr.lastIndexOf('}');
-  if (startIndex !== -1 && endIndex !== -1) {
-    jsonStr = jsonStr.substring(startIndex, endIndex + 1);
-  }
-
-  try {
-    const parsed = JSON.parse(jsonStr);
-
+  // 使用健壮的 JSON 解析器
+  const result = parseRobustJSON(output, (data) => {
     // 验证必要字段
-    if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
-      throw new Error('缺少 suggestions 字段');
+    if (!data.suggestions || !Array.isArray(data.suggestions)) {
+      return { valid: false, error: '缺少 suggestions 字段' };
     }
+    return { valid: true };
+  });
 
-    return parsed;
-  } catch (e) {
-    console.error('JSON 解析失败，原始输出:', output.substring(0, 500));
-    throw new Error(`JSON 解析失败: ${e.message}`);
+  if (!result.success) {
+    console.error('JSON 解析失败:', result.error);
+    if (result.rawOutput) {
+      console.error('原始输出预览:', result.rawOutput);
+    }
+    if (result.reasoning) {
+      console.log('思维链:', result.reasoning.substring(0, 200));
+    }
+    throw new Error(result.error || 'JSON 解析失败');
   }
+
+  return result.data;
 }
 
 /**

@@ -1,15 +1,24 @@
 /**
  * 热帖抓取页 - Tab 切换显示 X 趋势和 TopHub 热榜
+ * 支持查看过去12小时的历史数据
  */
 class TrendsPage {
     constructor(generator, params) {
         this.generator = generator;
         this.state = window.generatorState;
         this.activeTab = this.state.task?.trends_data?.source || 'x-trends';
-        this.reports = {
-            'x-trends': null,
-            'tophub-trends': null
+        // 按小时存储数据: { 'x-trends': { '14': report, '13': report }, ... }
+        this.hourlyReports = {
+            'x-trends': {},
+            'tophub-trends': {}
         };
+        // 可用小时列表
+        this.availableHours = {
+            'x-trends': [],
+            'tophub-trends': []
+        };
+        // 当前选中的小时
+        this.selectedHour = null;
         this.selectedTopic = null;
         this.isLoading = false;
     }
@@ -28,6 +37,11 @@ class TrendsPage {
                     <button class="tab ${this.activeTab === 'tophub-trends' ? 'active' : ''}" data-tab="tophub-trends">
                         🔥 TopHub 热榜
                     </button>
+                </div>
+
+                <!-- 小时时间轴 -->
+                <div class="hour-timeline" id="hour-timeline">
+                    <div class="loading-text">加载时间轴...</div>
                 </div>
 
                 <div class="trends-content" id="trends-content">
@@ -53,7 +67,7 @@ class TrendsPage {
         `;
 
         this.bindEvents(container);
-        this.loadTrends();
+        this.loadAvailableHours();
     }
 
     bindEvents(container) {
@@ -61,10 +75,11 @@ class TrendsPage {
         container.querySelectorAll('.tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 this.activeTab = tab.dataset.tab;
+                this.selectedHour = null; // 重置选中的小时
                 container.querySelectorAll('.tab').forEach(t => {
                     t.classList.toggle('active', t.dataset.tab === this.activeTab);
                 });
-                this.renderContent();
+                this.loadAvailableHours();
             });
         });
 
@@ -87,53 +102,153 @@ class TrendsPage {
         });
     }
 
-    async loadTrends() {
-        const cached = this.reports[this.activeTab];
+    /**
+     * 加载可用小时列表
+     */
+    async loadAvailableHours() {
+        try {
+            const response = await fetch(`/api/skills/${this.activeTab}/hours`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                this.availableHours[this.activeTab] = data.hours;
+                this.renderHourTimeline();
+
+                // 自动加载最新有数据的小时
+                const firstWithData = data.hours.find(h => h.hasData);
+                if (firstWithData) {
+                    this.loadTrendsByHour(firstWithData.hourKey);
+                } else {
+                    // 没有任何历史数据，触发抓取当前小时
+                    this.loadTrends();
+                }
+            } else {
+                // 如果没有小时数据，先触发抓取
+                this.loadTrends();
+            }
+        } catch (error) {
+            console.error('加载小时列表失败:', error);
+            this.loadTrends();
+        }
+    }
+
+    /**
+     * 渲染小时时间轴
+     */
+    renderHourTimeline() {
+        const timeline = document.getElementById('hour-timeline');
+        if (!timeline) return;
+
+        const hours = this.availableHours[this.activeTab] || [];
+
+        if (hours.length === 0) {
+            timeline.innerHTML = '<div class="timeline-empty">暂无历史数据</div>';
+            return;
+        }
+
+        timeline.innerHTML = `
+            <div class="timeline-scroll">
+                ${hours.map(h => `
+                    <button class="hour-btn ${h.hasData ? '' : 'no-data'} ${this.selectedHour === h.hourKey ? 'active' : ''} ${h.isCurrent ? 'current' : ''}"
+                            data-hour="${h.hourKey}"
+                            ${!h.hasData ? 'disabled' : ''}>
+                        <span class="hour-time">${h.displayTime}</span>
+                        ${h.isCurrent ? '<span class="hour-label">当前</span>' : ''}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+
+        // 绑定小时按钮事件
+        timeline.querySelectorAll('.hour-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const hourKey = btn.dataset.hour;
+                this.loadTrendsByHour(hourKey);
+            });
+        });
+    }
+
+    /**
+     * 加载指定小时的数据
+     */
+    async loadTrendsByHour(hourKey) {
+        // 检查是否已缓存
+        const cached = this.hourlyReports[this.activeTab][hourKey];
         if (cached) {
+            this.selectedHour = hourKey;
+            this.renderHourTimeline();
             this.renderContent();
             return;
         }
 
         this.isLoading = true;
-        this.cacheInfo = null;
+        this.selectedHour = hourKey;
+        this.renderHourTimeline();
+        this.renderContent();
+
+        try {
+            const response = await fetch(`/api/skills/${this.activeTab}/cached/${hourKey}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                this.hourlyReports[this.activeTab][hourKey] = data.content;
+            } else {
+                this.hourlyReports[this.activeTab][hourKey] = `${hourKey}:00 暂无数据`;
+            }
+        } catch (error) {
+            this.hourlyReports[this.activeTab][hourKey] = `加载失败: ${error.message}`;
+        }
+
+        this.isLoading = false;
+        this.renderContent();
+    }
+
+    /**
+     * 加载当前小时数据（触发抓取）
+     */
+    async loadTrends() {
+        this.isLoading = true;
         this.renderContent();
 
         try {
             await this.generator.executeStep('trends', { source: this.activeTab }, {
                 start: (data) => {
-                    if (data.fromCache) {
-                        this.cacheInfo = { message: data.message };
-                    }
                     this.renderContent();
                 },
                 log: (data) => {
                     // 可以显示日志
                 },
                 report: (data) => {
-                    this.reports[this.activeTab] = data.content;
-                    if (data.fromCache) {
-                        this.cacheInfo = {
-                            fromCache: true,
-                            cachedAt: data.cachedAt
-                        };
-                    }
+                    // 存储到当前小时
+                    const now = new Date();
+                    const hourKey = String(now.getHours()).padStart(2, '0');
+                    this.hourlyReports[this.activeTab][hourKey] = data.content;
+                    this.selectedHour = hourKey;
                 },
                 done: (data) => {
                     this.isLoading = false;
-                    this.renderContent();
-                    if (data.fromCache) {
-                        this.generator.showToast('使用缓存数据', 'info');
-                    }
+                    // 重新加载小时列表
+                    this.loadAvailableHours();
                 },
                 error: (data) => {
                     this.isLoading = false;
-                    this.reports[this.activeTab] = `加载失败: ${data.message}`;
+                    const now = new Date();
+                    const hourKey = String(now.getHours()).padStart(2, '0');
+                    this.hourlyReports[this.activeTab][hourKey] = `加载失败: ${data.message}`;
+                    this.selectedHour = hourKey;
                     this.renderContent();
                 }
             });
         } catch (error) {
             this.isLoading = false;
-            this.reports[this.activeTab] = `加载失败: ${error.message}`;
+            const now = new Date();
+            const hourKey = String(now.getHours()).padStart(2, '0');
+            this.hourlyReports[this.activeTab][hourKey] = `加载失败: ${error.message}`;
+            this.selectedHour = hourKey;
             this.renderContent();
         }
     }
@@ -152,17 +267,14 @@ class TrendsPage {
             return;
         }
 
-        const report = this.reports[this.activeTab];
+        const report = this.selectedHour ? this.hourlyReports[this.activeTab][this.selectedHour] : null;
         if (!report) {
             content.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-state-icon">📊</div>
-                    <div class="empty-state-text">点击上方标签加载趋势数据</div>
+                    <div class="empty-state-text">选择上方时间查看历史数据，或等待下次定时抓取</div>
                 </div>
             `;
-
-            // 自动加载
-            this.loadTrends();
             return;
         }
 
@@ -183,7 +295,6 @@ class TrendsPage {
             // 使用 JSON 数据
             sections = {
                 overview: jsonData.overview,
-                highPotential: jsonData.highPotentialTopics,
                 categories: jsonData.categories
             };
             topics = this.parseTopicsFromJSON(jsonData);
@@ -193,30 +304,13 @@ class TrendsPage {
             topics = this.parseTopics(report);
         }
 
-        // 缓存提示
-        const cacheNotice = this.cacheInfo?.fromCache
-            ? `<div class="cache-notice">📦 数据来自缓存（每小时更新一次）</div>`
-            : '';
-
         content.innerHTML = `
-            ${cacheNotice}
-
             <!-- 热点概览 -->
             ${sections.overview ? `
                 <div class="trends-section">
                     <h3 class="section-title">🔥 热点概览</h3>
                     <div class="section-content overview-content">
                         ${jsonData ? this.escapeHtml(sections.overview) : this.generator.formatMarkdown(sections.overview)}
-                    </div>
-                </div>
-            ` : ''}
-
-            <!-- 高潜力话题分析 -->
-            ${sections.highPotential && sections.highPotential.length > 0 ? `
-                <div class="trends-section">
-                    <h3 class="section-title">⭐ 高潜力话题分析</h3>
-                    <div class="section-content">
-                        ${jsonData ? this.renderHighPotentialFromJSON(sections.highPotential) : this.renderHighPotentialTable(sections.highPotential)}
                     </div>
                 </div>
             ` : ''}
@@ -231,38 +325,12 @@ class TrendsPage {
                 </div>
             ` : ''}
 
-            <!-- 选题建议 -->
+            <!-- 选题建议（已合并高潜力话题分析） -->
             <div class="trends-section">
                 <h3 class="section-title">💡 选题建议 <span class="section-hint">（点击选择一个话题）</span></h3>
                 ${topics.length > 0 ? `
                     <div class="topic-list">
-                        ${topics.map((topic, index) => `
-                            <div class="topic-item ${this.selectedTopic?.index === index ? 'selected' : ''}"
-                                 data-index="${index}">
-                                <div class="topic-header">
-                                    <span class="topic-number">${index + 1}</span>
-                                    <span class="topic-title">${this.escapeHtml(topic.title)}</span>
-                                </div>
-                                ${topic.angle ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">选题角度:</span>
-                                        <span class="field-value">${this.escapeHtml(topic.angle)}</span>
-                                    </div>
-                                ` : ''}
-                                ${topic.meta ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">为什么有效:</span>
-                                        <span class="field-value">${this.escapeHtml(topic.meta)}</span>
-                                    </div>
-                                ` : ''}
-                                ${topic.direction ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">创作方向:</span>
-                                        <div class="field-value direction-list">${topic.direction}</div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `).join('')}
+                        ${topics.map((topic, index) => this.renderTopicItem(topic, index)).join('')}
                     </div>
                 ` : `
                     <div class="empty-state" style="margin-bottom: 20px;">
@@ -293,39 +361,22 @@ class TrendsPage {
             // 使用 JSON 数据
             sections = {
                 overview: jsonData.overview,
-                highPotential: jsonData.highPotentialTopics,
                 categories: jsonData.categories
             };
-            topics = this.parseTopicsFromJSON(jsonData);
+            topics = this.parseTopicsFromJSON(jsonData, true); // showSource = true for tophub
         } else {
             // 回退到 Markdown 解析
             topics = this.parseTopics(report);
             sections = null;
         }
 
-        const cacheNotice = this.cacheInfo?.fromCache
-            ? `<div class="cache-notice">📦 数据来自缓存（每小时更新一次）</div>`
-            : '';
-
         content.innerHTML = `
-            ${cacheNotice}
-
             <!-- 热点概览 (仅 JSON 模式) -->
             ${jsonData && sections.overview ? `
                 <div class="trends-section">
                     <h3 class="section-title">🔥 热点概览</h3>
                     <div class="section-content overview-content">
                         ${this.escapeHtml(sections.overview)}
-                    </div>
-                </div>
-            ` : ''}
-
-            <!-- 高潜力话题分析 (仅 JSON 模式) -->
-            ${jsonData && sections.highPotential && sections.highPotential.length > 0 ? `
-                <div class="trends-section">
-                    <h3 class="section-title">⭐ 高潜力话题分析</h3>
-                    <div class="section-content">
-                        ${this.renderHighPotentialFromJSON(sections.highPotential, true)}
                     </div>
                 </div>
             ` : ''}
@@ -340,38 +391,12 @@ class TrendsPage {
                 </div>
             ` : ''}
 
-            <!-- 选题建议 -->
+            <!-- 选题建议（已合并高潜力话题分析） -->
             <div class="trends-section">
                 <h3 class="section-title">💡 选题建议 <span class="section-hint">（点击选择一个话题）</span></h3>
                 ${topics.length > 0 ? `
                     <div class="topic-list">
-                        ${topics.map((topic, index) => `
-                            <div class="topic-item ${this.selectedTopic?.index === index ? 'selected' : ''}"
-                                 data-index="${index}">
-                                <div class="topic-header">
-                                    <span class="topic-number">${index + 1}</span>
-                                    <span class="topic-title">${this.escapeHtml(topic.title)}</span>
-                                </div>
-                                ${topic.angle ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">选题角度:</span>
-                                        <span class="field-value">${this.escapeHtml(topic.angle)}</span>
-                                    </div>
-                                ` : ''}
-                                ${topic.meta ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">为什么有效:</span>
-                                        <span class="field-value">${this.escapeHtml(topic.meta)}</span>
-                                    </div>
-                                ` : ''}
-                                ${topic.direction ? `
-                                    <div class="topic-field">
-                                        <span class="field-label">创作方向:</span>
-                                        <div class="field-value direction-list">${topic.direction}</div>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `).join('')}
+                        ${topics.map((topic, index) => this.renderTopicItem(topic, index)).join('')}
                     </div>
                 ` : `
                     <div class="empty-state" style="margin-bottom: 20px;">
@@ -629,7 +654,7 @@ class TrendsPage {
         }
     }
 
-    parseTopicsFromJSON(jsonData) {
+    parseTopicsFromJSON(jsonData, showSource = false) {
         if (!jsonData || !jsonData.suggestions) return [];
 
         return jsonData.suggestions.map((s, index) => {
@@ -655,9 +680,16 @@ class TrendsPage {
                 }
             }
 
+            // 提取链接：tophub 使用 link，x-trends 使用 url
+            const topicLink = s.link || s.url || '';
+
             return {
                 title: s.topic || `建议 ${index + 1}`,
                 topic: s.topic || '',
+                source: showSource ? (s.source || '') : '', // 来源平台（仅 tophub）
+                link: topicLink, // 话题链接
+                score: s.score || '', // 潜力评分
+                reason: s.reason || '', // 为什么有潜力
                 angle: s.angle || '',
                 meta: s.whyEffective || '',
                 direction: direction,
@@ -668,24 +700,68 @@ class TrendsPage {
         });
     }
 
-    renderHighPotentialFromJSON(topics, showSource = false) {
-        if (!topics || !topics.length) return '';
-
+    /**
+     * 渲染单个话题项（合并高潜力分析和选题建议）
+     */
+    renderTopicItem(topic, index) {
         return `
-            <div class="potential-table">
-                ${topics.map(item => `
-                    <div class="potential-row">
-                        <div class="potential-rank">${item.rank || ''}</div>
-                        <div class="potential-main">
-                            <div class="potential-topic">${this.escapeHtml(item.topic || '')}</div>
-                            ${showSource && item.source ? `<div class="potential-source">${this.escapeHtml(item.source)}</div>` : ''}
-                            <div class="potential-reason">${this.escapeHtml(item.reason || '')}</div>
-                        </div>
-                        <div class="potential-score">${this.escapeHtml(item.score || '')}</div>
+            <div class="topic-item ${this.selectedTopic?.index === index ? 'selected' : ''}"
+                 data-index="${index}">
+                <div class="topic-header">
+                    <span class="topic-number">${index + 1}</span>
+                    <span class="topic-title">${this.escapeHtml(topic.title)}</span>
+                    ${topic.score ? `<span class="topic-score score-${this.getScoreClass(topic.score)}">${this.escapeHtml(topic.score)}</span>` : ''}
+                </div>
+                ${topic.link ? `
+                    <div class="topic-field topic-link">
+                        <a href="${this.escapeHtml(topic.link)}" target="_blank" rel="noopener noreferrer" class="topic-link-btn" onclick="event.stopPropagation();">
+                            🔗 查看原帖
+                        </a>
                     </div>
-                `).join('')}
+                ` : ''}
+                ${topic.source ? `
+                    <div class="topic-field topic-source">
+                        <span class="field-label">来源:</span>
+                        <span class="field-value source-tag">${this.escapeHtml(topic.source)}</span>
+                    </div>
+                ` : ''}
+                ${topic.reason ? `
+                    <div class="topic-field">
+                        <span class="field-label">潜力分析:</span>
+                        <span class="field-value">${this.escapeHtml(topic.reason)}</span>
+                    </div>
+                ` : ''}
+                ${topic.angle ? `
+                    <div class="topic-field">
+                        <span class="field-label">选题角度:</span>
+                        <span class="field-value">${this.escapeHtml(topic.angle)}</span>
+                    </div>
+                ` : ''}
+                ${topic.meta ? `
+                    <div class="topic-field">
+                        <span class="field-label">为什么有效:</span>
+                        <span class="field-value">${this.escapeHtml(topic.meta)}</span>
+                    </div>
+                ` : ''}
+                ${topic.direction ? `
+                    <div class="topic-field">
+                        <span class="field-label">创作方向:</span>
+                        <div class="field-value direction-list">${topic.direction}</div>
+                    </div>
+                ` : ''}
             </div>
         `;
+    }
+
+    /**
+     * 根据评分返回样式类名
+     */
+    getScoreClass(score) {
+        if (!score) return 'low';
+        const s = score.toLowerCase();
+        if (s.includes('高') || s.includes('high')) return 'high';
+        if (s.includes('中') || s.includes('medium')) return 'medium';
+        return 'low';
     }
 
     renderCategoriesFromJSON(categories) {

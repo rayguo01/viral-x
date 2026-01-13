@@ -2,10 +2,9 @@
  * Skill 缓存服务
  *
  * 功能：
- * 1. 基于 TTL 的内存缓存
+ * 1. 基于小时的历史数据存储（保留12小时）
  * 2. 并发请求锁（多人同时请求只执行一次）
- * 3. 支持不同 skill 的不同缓存时间
- * 4. 磁盘持久化（服务重启后恢复缓存）
+ * 3. 磁盘持久化（服务重启后恢复缓存）
  */
 
 const path = require('path');
@@ -13,8 +12,12 @@ const fs = require('fs');
 
 class SkillCache {
     constructor() {
-        // 缓存存储
-        this.cache = new Map();
+        // 缓存存储（按小时存储）
+        // 格式: Map<skillId, Map<hourKey, { content, generatedAt }>>
+        this.hourlyCache = new Map();
+
+        // 当前小时的缓存（用于判断本小时是否已抓取）
+        this.currentHourCache = new Map();
 
         // 执行锁（防止并发执行）
         this.locks = new Map();
@@ -22,11 +25,8 @@ class SkillCache {
         // 等待队列（并发请求时，后续请求等待第一个完成）
         this.waitQueues = new Map();
 
-        // 缓存配置（毫秒）
-        this.ttlConfig = {
-            'x-trends': 60 * 60 * 1000,        // 1 小时
-            'tophub-trends': 60 * 60 * 1000    // 1 小时
-        };
+        // 保留的小时数
+        this.maxHours = 12;
 
         // 持久化缓存目录
         this.cacheDir = path.join(__dirname, '../../outputs/.cache');
@@ -39,12 +39,21 @@ class SkillCache {
     }
 
     /**
+     * 获取小时键（格式：HH，如 "14", "09"）
+     * @param {Date} date
+     * @returns {string}
+     */
+    getHourKey(date = new Date()) {
+        return String(date.getHours()).padStart(2, '0');
+    }
+
+    /**
      * 获取缓存文件路径
      * @param {string} skillId
      * @returns {string}
      */
     getCacheFilePath(skillId) {
-        return path.join(this.cacheDir, `${skillId}.cache.json`);
+        return path.join(this.cacheDir, `${skillId}.hourly.json`);
     }
 
     /**
@@ -52,19 +61,22 @@ class SkillCache {
      * @param {string} skillId
      */
     saveToDisk(skillId) {
-        const cached = this.cache.get(skillId);
-        if (!cached) return;
+        const hourlyData = this.hourlyCache.get(skillId);
+        if (!hourlyData) return;
 
         const filePath = this.getCacheFilePath(skillId);
-        const data = {
-            content: cached.content,
-            generatedAt: cached.generatedAt,
-            expireAt: cached.expireAt
-        };
+        const data = {};
+
+        for (const [hourKey, cached] of hourlyData.entries()) {
+            data[hourKey] = {
+                content: cached.content,
+                generatedAt: cached.generatedAt
+            };
+        }
 
         try {
             fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-            console.log(`[缓存] 已持久化 ${skillId} 到磁盘`);
+            console.log(`[缓存] 已持久化 ${skillId} 到磁盘（${Object.keys(data).length} 个小时）`);
         } catch (err) {
             console.error(`[缓存] 持久化 ${skillId} 失败:`, err.message);
         }
@@ -82,14 +94,20 @@ class SkillCache {
 
             try {
                 const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-                this.cache.set(skillId, {
-                    content: data.content,
-                    generatedAt: data.generatedAt,
-                    expireAt: data.expireAt
-                });
+                const hourlyData = new Map();
 
-                const isExpired = Date.now() > data.expireAt;
-                console.log(`[缓存] 从磁盘恢复 ${skillId}，${isExpired ? '已过期' : '有效'}`);
+                for (const [hourKey, cached] of Object.entries(data)) {
+                    hourlyData.set(hourKey, {
+                        content: cached.content,
+                        generatedAt: cached.generatedAt
+                    });
+                }
+
+                this.hourlyCache.set(skillId, hourlyData);
+                console.log(`[缓存] 从磁盘恢复 ${skillId}，共 ${hourlyData.size} 个小时的数据`);
+
+                // 清理超过12小时的数据
+                this.cleanupOldData(skillId);
             } catch (err) {
                 console.error(`[缓存] 恢复 ${skillId} 失败:`, err.message);
             }
@@ -97,51 +115,127 @@ class SkillCache {
     }
 
     /**
-     * 获取缓存
+     * 清理超过12小时的旧数据
+     * @param {string} skillId
+     */
+    cleanupOldData(skillId) {
+        const hourlyData = this.hourlyCache.get(skillId);
+        if (!hourlyData) return;
+
+        // 获取当前小时
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // 计算有效的小时范围（过去12个小时）
+        const validHours = new Set();
+        for (let i = 0; i < this.maxHours; i++) {
+            let hour = currentHour - i;
+            if (hour < 0) hour += 24;
+            validHours.add(String(hour).padStart(2, '0'));
+        }
+
+        // 删除不在有效范围内的数据
+        let deleted = 0;
+        for (const hourKey of hourlyData.keys()) {
+            if (!validHours.has(hourKey)) {
+                hourlyData.delete(hourKey);
+                deleted++;
+            }
+        }
+
+        if (deleted > 0) {
+            console.log(`[缓存] 清理 ${skillId} 旧数据，删除 ${deleted} 个小时`);
+            this.saveToDisk(skillId);
+        }
+    }
+
+    /**
+     * 获取当前小时的缓存
      * @param {string} skillId
      * @returns {object|null} 缓存内容或 null
      */
     get(skillId) {
-        const cached = this.cache.get(skillId);
+        const hourKey = this.getHourKey();
+        return this.getByHour(skillId, hourKey);
+    }
 
-        if (!cached) {
-            return null;
-        }
+    /**
+     * 获取指定小时的缓存
+     * @param {string} skillId
+     * @param {string} hourKey - 小时键，如 "14"
+     * @returns {object|null}
+     */
+    getByHour(skillId, hourKey) {
+        const hourlyData = this.hourlyCache.get(skillId);
+        if (!hourlyData) return null;
 
-        // 检查是否过期
-        if (Date.now() > cached.expireAt) {
-            this.cache.delete(skillId);
-            console.log(`[缓存] ${skillId} 已过期，已清除`);
-            return null;
-        }
-
-        const remainingMinutes = Math.round((cached.expireAt - Date.now()) / 60000);
-        console.log(`[缓存] 命中 ${skillId}，剩余有效期 ${remainingMinutes} 分钟`);
+        const cached = hourlyData.get(hourKey);
+        if (!cached) return null;
 
         return {
             content: cached.content,
             generatedAt: cached.generatedAt,
+            hourKey,
             fromCache: true
         };
     }
 
     /**
-     * 设置缓存
+     * 获取所有可用的小时列表（按时间倒序）
+     * 始终返回12个小时，即使没有数据
+     * @param {string} skillId
+     * @returns {Array<{hourKey: string, generatedAt: number, displayTime: string}>}
+     */
+    getAvailableHours(skillId) {
+        const hourlyData = this.hourlyCache.get(skillId) || new Map();
+
+        const now = new Date();
+        const currentHour = now.getHours();
+
+        // 生成过去12个小时的列表
+        const hours = [];
+        for (let i = 0; i < this.maxHours; i++) {
+            let hour = currentHour - i;
+            if (hour < 0) hour += 24;
+            const hourKey = String(hour).padStart(2, '0');
+
+            const cached = hourlyData.get(hourKey);
+            hours.push({
+                hourKey,
+                displayTime: `${hourKey}:00`,
+                hasData: !!cached,
+                generatedAt: cached?.generatedAt || null,
+                isCurrent: i === 0
+            });
+        }
+
+        return hours;
+    }
+
+    /**
+     * 设置缓存（存储到当前小时）
      * @param {string} skillId
      * @param {string} content
      */
     set(skillId, content) {
-        const ttl = this.ttlConfig[skillId] || 60 * 60 * 1000; // 默认 1 小时
+        const hourKey = this.getHourKey();
         const now = Date.now();
 
-        this.cache.set(skillId, {
+        // 初始化 skillId 的 Map
+        if (!this.hourlyCache.has(skillId)) {
+            this.hourlyCache.set(skillId, new Map());
+        }
+
+        const hourlyData = this.hourlyCache.get(skillId);
+        hourlyData.set(hourKey, {
             content,
-            generatedAt: now,
-            expireAt: now + ttl
+            generatedAt: now
         });
 
-        const ttlMinutes = Math.round(ttl / 60000);
-        console.log(`[缓存] 已缓存 ${skillId}，有效期 ${ttlMinutes} 分钟`);
+        console.log(`[缓存] 已缓存 ${skillId} @ ${hourKey}:00`);
+
+        // 清理旧数据
+        this.cleanupOldData(skillId);
 
         // 持久化到磁盘
         this.saveToDisk(skillId);
@@ -215,32 +309,19 @@ class SkillCache {
      */
     getStatus() {
         const status = {};
+        const skillIds = ['x-trends', 'tophub-trends'];
 
-        for (const [skillId, cached] of this.cache.entries()) {
-            const isExpired = Date.now() > cached.expireAt;
+        for (const skillId of skillIds) {
+            const hours = this.getAvailableHours(skillId);
+            const currentHourData = hours.find(h => h.isCurrent);
+
             status[skillId] = {
-                cached: !isExpired,
-                generatedAt: cached.generatedAt ? new Date(cached.generatedAt).toLocaleString('zh-CN') : null,
-                expireAt: cached.expireAt ? new Date(cached.expireAt).toLocaleString('zh-CN') : null,
-                remainingMinutes: isExpired ? 0 : Math.round((cached.expireAt - Date.now()) / 60000),
+                cachedHours: hours.filter(h => h.hasData).length,
+                currentHourCached: currentHourData?.hasData || false,
                 isExecuting: this.isLocked(skillId),
-                waitingCount: (this.waitQueues.get(skillId) || []).length
+                waitingCount: (this.waitQueues.get(skillId) || []).length,
+                availableHours: hours
             };
-        }
-
-        // 添加未缓存但已配置的 skill
-        for (const skillId of Object.keys(this.ttlConfig)) {
-            if (!status[skillId]) {
-                status[skillId] = {
-                    cached: false,
-                    generatedAt: null,
-                    expireAt: null,
-                    remainingMinutes: 0,
-                    isExecuting: this.isLocked(skillId),
-                    waitingCount: (this.waitQueues.get(skillId) || []).length,
-                    ttlMinutes: Math.round(this.ttlConfig[skillId] / 60000)
-                };
-            }
         }
 
         return status;
@@ -251,7 +332,12 @@ class SkillCache {
      * @param {string} skillId
      */
     clear(skillId) {
-        this.cache.delete(skillId);
+        this.hourlyCache.delete(skillId);
+        // 删除磁盘缓存
+        const filePath = this.getCacheFilePath(skillId);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
         console.log(`[缓存] 已清除 ${skillId}`);
     }
 
@@ -259,7 +345,7 @@ class SkillCache {
      * 清除所有缓存
      */
     clearAll() {
-        this.cache.clear();
+        this.hourlyCache.clear();
         console.log('[缓存] 已清除所有缓存');
     }
 }

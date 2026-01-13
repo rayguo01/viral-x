@@ -1,8 +1,199 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.7.0
+## 版本: v2.8.3
 
 ## 完成的工作
+
+### 3.19 选题链接功能 (v2.8.3)
+
+**功能概述**：为所有选题建议添加可点击的链接，方便用户直接查看原帖。
+
+**功能特性**：
+
+1. **X-Trends 链接**：使用 X 搜索 URL 格式（`https://x.com/search?q=话题名称`）
+2. **TopHub 链接**：使用原始文章链接
+3. **链接显示**：在话题标题下方显示"🔗 查看原帖"按钮
+4. **交互优化**：点击链接不会触发话题选择，链接在新标签页打开
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `.claude/x-trends/x-trends.ts` | JSON_SCHEMA 添加 `url` 字段 |
+| `.claude/tophub-trends/tophub.ts` | JSON_SCHEMA 添加 `link` 字段 |
+| `public/js/generator/pages/trends.js` | `parseTopicsFromJSON` 提取链接，`renderTopicItem` 显示链接按钮 |
+| `public/css/generator.css` | 添加 `.topic-link`, `.topic-link-btn` 样式 |
+
+---
+
+### 3.18 热帖历史数据查看功能 (v2.8.2)
+
+**功能概述**：支持查看过去12小时的热帖抓取历史数据，通过时间轴快速切换不同时间点的数据。
+
+**功能特性**：
+
+1. **12小时历史数据存储**：
+   - 后端按小时存储热帖数据
+   - 自动清理超过12小时的旧数据
+   - 数据持久化到磁盘，服务重启后恢复
+
+2. **时间轴UI**：
+   - 页面顶部显示过去12小时的时间按钮
+   - 有数据的时间点可点击切换
+   - 当前小时标记为"当前"
+   - 无数据的时间点显示为灰色禁用状态
+
+3. **移除缓存提示**：
+   - 移除"📦 数据来自缓存（每小时更新一次）"提示
+   - 用户通过时间轴直观了解数据时间
+
+**新增 API**：
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/skills/:skillId/hours` | GET | 获取可用小时列表 |
+| `/api/skills/:skillId/cached/:hourKey` | GET | 获取指定小时的数据 |
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `src/services/skillCache.js` | 重构为按小时存储，添加 `getByHour`, `getAvailableHours` 方法 |
+| `src/routes/skills.js` | 新增按小时获取数据的 API |
+| `public/js/generator/pages/trends.js` | 添加时间轴UI，按小时加载数据 |
+| `public/css/generator.css` | 添加时间轴样式 |
+
+---
+
+### 3.17 合并高潜力话题分析和选题建议 (v2.8.1)
+
+**功能概述**：将 x-trends 和 tophub-trends 的"高潜力话题分析"与"选题建议"合并为统一的 `suggestions` 数组，简化数据结构并提升用户体验。
+
+**改进内容**：
+
+1. **统一的 suggestions 结构**：
+   - 合并原 `highPotentialTopics` 和 `suggestions` 为一个数组
+   - 每个话题项现在包含完整信息：评分、原因、选题角度、创作方向
+
+2. **新的 JSON Schema**：
+```json
+{
+  "suggestions": [
+    {
+      "rank": 1,
+      "topic": "话题名称",
+      "source": "来源平台（仅 tophub）",
+      "score": "潜力评分（高/中/低）",
+      "reason": "为什么有潜力",
+      "angle": "选题角度/标题建议",
+      "whyEffective": "为什么这个选题角度有效",
+      "directions": ["创作方向1", "创作方向2"]
+    }
+  ]
+}
+```
+
+3. **前端更新**：
+   - 移除独立的"高潜力话题分析"区块
+   - 话题卡片直接显示评分徽章（高/中/低）
+   - 增加来源平台标签（仅 TopHub）
+   - 增加"潜力分析"字段显示
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `.claude/x-trends/x-trends.ts` | 更新 JSON Schema 和 Prompt |
+| `.claude/tophub-trends/tophub.ts` | 更新 JSON Schema 和 Prompt |
+| `public/js/generator/pages/trends.js` | 更新解析逻辑和渲染模板 |
+| `public/css/generator.css` | 添加评分徽章和来源标签样式 |
+
+---
+
+### 3.16 健壮 JSON 解析重构 (v2.8.0)
+
+**功能概述**：基于 `engine.go` 的最佳实践，重构所有 Skill 的 JSON 解析逻辑，大幅提高 LLM 输出解析的稳定性。
+
+**核心改进**：
+
+1. **XML 标签包裹**：要求 LLM 使用 `<reasoning>` 和 `<result>` 标签分隔思维链和 JSON 输出，避免思维链中的文字干扰 JSON 解析。
+
+2. **多层回退 JSON 提取**：
+   - 层级1：从 `<result>` 标签提取
+   - 层级2：从 `<json>` 标签提取
+   - 层级3：从 `<decision>` 标签提取
+   - 层级4：从 ` ```json ` 代码块提取
+   - 层级5：直接匹配 JSON 对象 `{...}`
+   - 层级6：直接匹配 JSON 数组 `[...]`
+
+3. **全角字符自动修复**：自动将中文全角字符转换为半角，包括：
+   - 中文引号：`"` `"` `'` `'` → `"` `'`
+   - 全角括号：`［` `］` `｛` `｝` → `[` `]` `{` `}`
+   - 全角标点：`：` `，` `、` → `:` `,` `,`
+   - CJK 括号：`【` `】` `〔` `〕` → `[` `]`
+   - 全角空格：`　` → ` `
+
+4. **格式验证**：
+   - 检查 JSON 是否以 `{` 或 `[` 开头
+   - 检查是否包含非法范围符号 `~`
+   - 检查是否包含千位分隔符 `98,000`
+
+5. **零宽字符清理**：自动移除 BOM 和零宽字符 (U+200B, U+200C, U+200D, U+FEFF)
+
+**新增文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `.claude/utils/json-parser.ts` | 共享 JSON 解析工具模块 |
+
+**修改的 Skill 文件**：
+
+| Skill | 文件 | 修改内容 |
+|-------|------|----------|
+| content-writer | `content-writer.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+| viral-verification | `viral-verification.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+| prompt-generator | `prompt-generator.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+| image-search | `image-search.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+| x-trends | `x-trends.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+| tophub-trends | `tophub.ts` | 使用 `parseRobustJSON`，prompt 添加 XML 标签格式说明 |
+
+**json-parser.ts 导出的函数**：
+
+| 函数 | 说明 |
+|------|------|
+| `removeInvisibleRunes(s)` | 移除零宽字符和 BOM |
+| `fixFullWidthChars(s)` | 修复全角字符 |
+| `validateJSONFormat(s)` | 验证 JSON 格式 |
+| `extractFromXmlTag(s, tag)` | 从 XML 标签提取内容 |
+| `extractReasoning(s)` | 提取思维链 |
+| `extractJSON(s)` | 多层回退 JSON 提取 |
+| `parseRobustJSON<T>(s, validator?)` | 主解析函数，支持自定义验证器 |
+| `generateXMLOutputInstructions(schema)` | 生成 XML 格式输出说明 |
+| `generateSimpleOutputInstructions(schema)` | 生成简化输出说明 |
+
+**Prompt 格式模板**：
+```
+**必须使用 XML 标签分隔思维过程和 JSON 结果，避免解析错误**
+
+## 格式要求
+
+<reasoning>
+你的思维过程分析...
+</reasoning>
+
+<result>
+{ ... JSON 内容 ... }
+</result>
+
+## 注意事项
+1. <result> 标签内必须是合法的 JSON 格式
+2. 内容中的换行使用 \\n 表示
+3. 内容中的双引号使用 \\" 转义
+4. 不要在 <result> 标签内添加 markdown 代码块
+5. 所有标点符号必须使用英文半角字符
+```
+
+---
 
 ### 3.15 Twitter OAuth 2.0 集成 (v2.7.0)
 
