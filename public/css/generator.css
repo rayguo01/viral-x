@@ -576,6 +576,140 @@
     border-radius: var(--radius-lg);
     color: var(--text-muted);
     font-size: 16px;
+    text-align: center;
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.placeholder-text {
+    color: var(--text-muted);
+}
+
+/* ===================================
+   图片页面布局
+   =================================== */
+.image-page {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.image-area {
+    margin-bottom: 24px;
+}
+
+.prompt-preview {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.prompt-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--bg-subtle);
+    padding: 16px;
+    border-radius: var(--radius-md);
+    margin: 12px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.prompt-meta {
+    margin-top: 12px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.generate-section {
+    text-align: center;
+    margin: 24px 0;
+}
+
+.btn-large {
+    padding: 16px 48px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.image-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+/* ===================================
+   Prompt 页面布局
+   =================================== */
+.prompt-page {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.prompt-area {
+    margin-bottom: 24px;
+}
+
+.prompt-details {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--bg-subtle);
+    border-radius: var(--radius-md);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.detail-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.detail-value {
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.detail-elements {
+    margin-top: 16px;
+}
+
+.element-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.element-tag {
+    padding: 4px 12px;
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.prompt-actions {
+    margin-top: 16px;
+    text-align: center;
 }
 
 /* ===================================
