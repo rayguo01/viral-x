@@ -26,17 +26,20 @@ export class TwitterApiClient {
     console.log(`[TwitterAPI] 搜索: ${query.substring(0, 50)}...`);
 
     while (tweets.length < count) {
-      const response = await fetch(`${this.baseUrl}/twitter/tweet/advanced_search`, {
-        method: 'POST',
+      // 构建 URL 参数
+      const params = new URLSearchParams({
+        query,
+        queryType: 'Latest'
+      });
+      if (cursor) {
+        params.append('cursor', cursor);
+      }
+
+      const response = await fetch(`${this.baseUrl}/twitter/tweet/advanced_search?${params.toString()}`, {
+        method: 'GET',
         headers: {
-          'X-API-Key': this.apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query,
-          queryType: 'Latest',
-          cursor
-        })
+          'X-API-Key': this.apiKey
+        }
       });
 
       if (!response.ok) {
@@ -76,16 +79,15 @@ export class TwitterApiClient {
     console.log(`[TwitterAPI] 获取 @${username} 的推文...`);
 
     try {
-      const response = await fetch(`${this.baseUrl}/twitter/user/last_tweets`, {
-        method: 'POST',
+      const params = new URLSearchParams({
+        userName: username
+      });
+
+      const response = await fetch(`${this.baseUrl}/twitter/user/last_tweets?${params.toString()}`, {
+        method: 'GET',
         headers: {
-          'X-API-Key': this.apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userName: username,
-          count: count
-        })
+          'X-API-Key': this.apiKey
+        }
       });
 
       if (!response.ok) {
