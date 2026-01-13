@@ -299,6 +299,13 @@ class ContentPage {
             return;
         }
 
+        // 清除后续步骤的缓存数据
+        try {
+            await this.generator.updateTask('clearSubsequentData', { fromStep: 'content' });
+        } catch (e) {
+            console.warn('清除后续数据失败:', e);
+        }
+
         this.isLoading = true;
         this.isEditing = false;
         this.updateContentArea();

@@ -52,8 +52,9 @@ class PromptPage {
 
         this.bindEvents(container);
 
-        // 如果没有 prompt，自动生成
-        if (!this.prompt && !this.isLoading) {
+        // 只有在完全没有 prompt 数据时才自动生成（首次进入）
+        // 如果用户从后续步骤返回，已有数据则不重新生成
+        if (!this.prompt && !this.isLoading && !task?.prompt_data) {
             this.generatePrompt();
         }
     }
@@ -194,6 +195,13 @@ class PromptPage {
         if (!content) {
             this.generator.showToast('没有找到内容来生成图片描述', 'error');
             return;
+        }
+
+        // 清除后续步骤的缓存数据（image 步骤）
+        try {
+            await this.generator.updateTask('clearSubsequentData', { fromStep: 'prompt' });
+        } catch (e) {
+            console.warn('清除后续数据失败:', e);
         }
 
         this.isLoading = true;

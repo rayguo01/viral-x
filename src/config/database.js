@@ -1,13 +1,29 @@
 const { Pool } = require('pg');
 
+// 从 DATABASE_URL 提取 schema 参数
+const dbUrl = process.env.DATABASE_URL || '';
+const schemaMatch = dbUrl.match(/[?&]schema=([^&]+)/);
+const schema = schemaMatch ? schemaMatch[1] : 'public';
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
+// 设置默认 search_path 为指定的 schema
+pool.on('connect', (client) => {
+    client.query(`SET search_path TO ${schema}`);
+});
+
 async function initDatabase() {
     const client = await pool.connect();
     try {
+        // 确保 schema 存在
+        if (schema !== 'public') {
+            await client.query(`CREATE SCHEMA IF NOT EXISTS ${schema}`);
+            await client.query(`SET search_path TO ${schema}`);
+        }
+
         // 创建用户表
         await client.query(`
             CREATE TABLE IF NOT EXISTS users (

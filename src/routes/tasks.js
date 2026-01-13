@@ -280,6 +280,44 @@ router.put('/:id', authenticate, async (req, res) => {
                 updateParams = [JSON.stringify(mergedImageData), taskId];
                 break;
 
+            case 'clearSubsequentData': {
+                // 清除指定步骤之后的所有数据（用于重新生成时）
+                const fromStep = data.fromStep;
+                const stepIdx = WORKFLOW_STEPS.indexOf(fromStep);
+                if (stepIdx === -1) {
+                    return res.status(400).json({ error: '无效的步骤' });
+                }
+
+                // 构建需要清除的字段
+                const fieldsToClear = [];
+                const stepsToDataMap = {
+                    'content': 'content_data',
+                    'optimize': 'optimize_data',
+                    'prompt': 'prompt_data',
+                    'image': 'image_data'
+                };
+
+                // 清除 fromStep 之后的所有步骤数据
+                for (let i = stepIdx + 1; i < WORKFLOW_STEPS.length; i++) {
+                    const sName = WORKFLOW_STEPS[i];
+                    if (stepsToDataMap[sName]) {
+                        fieldsToClear.push(`${stepsToDataMap[sName]} = NULL`);
+                    }
+                }
+
+                if (fieldsToClear.length > 0) {
+                    updateQuery = `UPDATE post_tasks SET
+                        ${fieldsToClear.join(', ')},
+                        updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $1 RETURNING *`;
+                    updateParams = [taskId];
+                } else {
+                    // 没有需要清除的，直接返回当前任务
+                    return res.json(task);
+                }
+                break;
+            }
+
             case 'skipStep':
                 // 跳过步骤
                 if (!SKIPPABLE_STEPS.includes(step)) {

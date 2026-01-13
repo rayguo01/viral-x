@@ -662,10 +662,10 @@
     flex: 1;
     padding: 12px 20px;
     font-size: 14px;
-    font-weight: 600;
-    color: var(--text-secondary);
+    font-weight: 500;
+    color: var(--text-muted);
     background: transparent;
-    border: none;
+    border: 2px solid transparent;
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.2s;
@@ -677,9 +677,11 @@
 }
 
 .mode-tab.active {
-    color: var(--accent-primary);
-    background: var(--surface-bg);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    color: #fff;
+    font-weight: 700;
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 /* ===================================
