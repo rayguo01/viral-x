@@ -53,7 +53,9 @@ class SkillCache {
      * @returns {string}
      */
     getCacheFilePath(skillId) {
-        return path.join(this.cacheDir, `${skillId}.hourly.json`);
+        // 将冒号替换为下划线，避免 Windows 文件名问题
+        const safeId = skillId.replace(/:/g, '_');
+        return path.join(this.cacheDir, `${safeId}.hourly.json`);
     }
 
     /**
