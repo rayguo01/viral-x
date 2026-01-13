@@ -1,8 +1,126 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.9.2
+## 版本: v2.9.5
 
 ## 完成的工作
+
+### 3.25 Web3 轮换模式 + AI KOL 优化 (v2.9.5)
+
+**功能概述**：将 Web3 领域也转换为 KOL 分组轮换抓取模式，同时优化 AI KOL 列表。
+
+**Web3 轮换配置**：
+- 新增 `.claude/domain-trends/presets/web3-kol-groups.json`
+- 100 个 Web3 KOL 分成 10 组
+- 每组 10 人，包含不同领域（创始人、交易员、NFT、DeFi 等）
+- 每 2 小时轮换一组，20 小时覆盖全部 100 人
+
+**AI KOL 列表优化**：
+- 移除 Elon Musk（发帖内容与 AI 领域相关度较低）
+- 调整排名，将 Dario Amodei 升至 Tier 1
+- 修正部分 Twitter handle（如 gdb, davidsholz, clem_delangue 等）
+- 更新 `docs/ai-kols-100.md`
+
+**新增文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `.claude/domain-trends/presets/web3-kol-groups.json` | Web3 领域 100 KOL 分组配置 |
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `docs/ai-kols-100.md` | 移除 Elon Musk，调整排名和 handle |
+
+---
+
+### 3.24 KOL 分组轮换抓取模式 (v2.9.4)
+
+**功能概述**：支持将 100 个 KOL 分成 10 组，每 2 小时轮换抓取一组，20 小时覆盖全部 KOL。每组包含不同 Tier 的人，确保数据多样性。
+
+**设计方案**：
+
+| 特性 | 说明 |
+|------|------|
+| 分组数量 | 10 组，每组 10 人 |
+| 轮换间隔 | 2 小时 |
+| 完整周期 | 20 小时覆盖全部 100 人 |
+| 分组策略 | 每组包含不同 Tier 的 KOL |
+
+**调度规则**：
+```
+0:00 → 组0, 2:00 → 组1, 4:00 → 组2, ...
+18:00 → 组9, 20:00 → 组0 (循环)
+```
+
+**新增文件**：
+
+| 文件 | 说明 |
+|------|------|
+| `.claude/domain-trends/presets/ai-kol-groups.json` | AI 领域 100 KOL 分组配置 |
+| `docs/ai-kols-100.md` | AI 领域 100 位推特大V 列表 |
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `.claude/domain-trends/types.ts` | 新增 `KolGroup` 和 `GroupRotationConfig` 类型 |
+| `.claude/domain-trends/domain-trends.ts` | 新增 `loadGroupConfig()`, `getCurrentGroup()`, `fetchGroupTweets()`, `runWithRotation()` 函数 |
+| `src/services/scheduler.js` | 支持轮换模式调度，每 2 小时检查并抓取当前组 |
+
+**运行模式**：
+```bash
+# 传统模式（10个KOL，每8小时）
+npx ts-node domain-trends.ts standard web3
+
+# 轮换模式（100个KOL分10组，每2小时轮换）
+npx ts-node domain-trends.ts rotation ai
+```
+
+**缓存策略**：
+- 轮换模式缓存 key 格式：`domain-trends:ai:group0`, `domain-trends:ai:group1`, ...
+- 每组缓存独立存储，2 小时窗口内有效
+
+**月成本估算**（轮换模式）：
+- 每组 10 人 × 5 条/人 = 50 条推文
+- 每天 12 次抓取 × 50 条 = 600 条
+- 每月 600 × 30 = 18,000 条
+- 成本：约 **$2.7/月**
+
+---
+
+### 3.23 domain-trends 关键词搜索可配置禁用 (v2.9.3)
+
+**功能概述**：支持通过配置禁用关键词搜索，只使用 KOL 监控模式，减少 API 调用成本。
+
+**配置示例**：
+```json
+{
+  "query": {
+    "enabled": false,  // 禁用关键词搜索
+    ...
+  },
+  "kols": {
+    "enabled": true,
+    "accounts": ["VitalikButerin", "punk6529", ...]
+  }
+}
+```
+
+**修改的文件**：
+
+| 文件 | 修改内容 |
+|------|----------|
+| `.claude/domain-trends/types.ts` | query 接口添加 `enabled?: boolean` 字段 |
+| `.claude/domain-trends/domain-trends.ts` | `fetchTweets()` 检查 `query.enabled` 配置，禁用时跳过搜索 |
+| `.claude/domain-trends/presets/web3.json` | 设置 `query.enabled: false`，只监控 10 个核心 KOL |
+
+**效果**：
+- 当 `query.enabled: false` 时，跳过关键词搜索，只抓取 KOL 推文
+- 减少 API 调用次数，节省成本
+- 日志显示 `⏭️ 关键词搜索已禁用，跳过`
+
+---
 
 ### 3.22 domain-trends API 修复和聚合逻辑优化 (v2.9.2)
 

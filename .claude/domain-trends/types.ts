@@ -2,13 +2,14 @@
  * Domain Trends 类型定义
  */
 
-// 领域配置
+// 领域配置（传统模式）
 export interface DomainConfig {
   id: string;
   name: string;
   description: string;
   hoursAgo?: number;  // 搜索最近N小时的推文，默认24小时
   query: {
+    enabled?: boolean;  // 是否启用关键词搜索，默认 true
     keywords: string[];
     hashtags: string[];
     minLikes: number;
@@ -23,6 +24,28 @@ export interface DomainConfig {
     tweetsPerKol: number;
   };
   fetchCount: number;
+}
+
+// KOL 分组
+export interface KolGroup {
+  groupId: number;
+  name: string;
+  accounts: string[];
+}
+
+// 分组轮换配置
+export interface GroupRotationConfig {
+  id: string;
+  name: string;
+  description: string;
+  hoursAgo?: number;
+  rotationIntervalHours: number;  // 轮换间隔（小时）
+  totalGroups: number;            // 总组数
+  groups: KolGroup[];
+  fetchConfig: {
+    minLikes: number;
+    tweetsPerKol: number;
+  };
 }
 
 // 推文数据

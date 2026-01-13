@@ -27,9 +27,10 @@ export class TwitterApiClient {
 
     while (tweets.length < count) {
       // 构建 URL 参数
+      // 使用 Top 排序获取热门推文，而非 Latest（最新但低互动）
       const params = new URLSearchParams({
         query,
-        queryType: 'Latest'
+        queryType: 'Top'
       });
       if (cursor) {
         params.append('cursor', cursor);

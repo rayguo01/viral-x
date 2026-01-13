@@ -79,13 +79,54 @@ curl -X POST "https://api.twitterapi.io/twitter/tweet/advanced_search" \
 }
 ```
 
+### 计费方式
+
+| 项目 | 计费方式 |
+|------|----------|
+| 推文数据 | 按返回条数：$0.15 / 1,000 条（15 积分/条） |
+| 用户资料 | 按返回条数：$0.18 / 1,000 个（18 积分/个） |
+| 最低收费 | 每次 API 调用最低 15 积分（$0.00015） |
+| 搜索接口 | 每次调用 150 积分（$0.0015）+ 返回数据费用 |
+
+### 费用计算示例
+
+**单次搜索 100 条推文**：
+```
+费用 = API 调用费 + 数据费
+     = $0.0015 + (100 × $0.00015)
+     = $0.0015 + $0.015
+     = $0.0165
+```
+
+**搜索 1,000 条推文（分 10 次调用）**：
+```
+费用 = (10 × $0.0015) + (1000 × $0.00015)
+     = $0.015 + $0.15
+     = $0.165
+```
+
 ### 成本估算
 
-| 使用场景 | 每次抓取量 | 每月成本（每天3次） |
-|----------|-----------|-------------------|
-| 轻量使用 | 100 条 | ~$1.35/月 |
-| 标准使用 | 500 条 | ~$6.75/月 |
-| 深度使用 | 1000 条 | ~$13.5/月 |
+| 组件 | 每次抓取量 | 说明 |
+|------|-----------|------|
+| 关键词搜索 | 200 条 | `fetchCount` 配置，约 2 次 API 调用 |
+| KOL 推文 | 7 KOL × 5 条 = 35 条 | 7 次 API 调用 |
+| **总计** | ~235 条/次 | 约 9 次 API 调用 |
+
+**单次抓取费用**：
+```
+API 调用费 = 9 × $0.0015 = $0.0135
+数据费用   = 235 × $0.00015 = $0.035
+总计       ≈ $0.05/次
+```
+
+| 使用频率 | 每月抓取次数 | 每月成本 |
+|----------|-------------|---------|
+| 每天 1 次 | 30 次 | ~$1.5/月 |
+| 每天 3 次 | 90 次 | ~$4.5/月 |
+| 每小时 1 次 | 720 次 | ~$36/月 |
+
+> 免费额度 100,000 积分约可使用 2,000 次抓取（每天 3 次可用约 22 个月）
 
 ---
 
@@ -120,7 +161,13 @@ interface DomainConfig {
     languages: string[];     // 语言过滤
     excludeRetweets: boolean;
   };
-  fetchCount: number;        // 抓取数量
+  kols: {
+    enabled: boolean;        // 是否启用 KOL 监控
+    accounts: string[];      // KOL 账号列表（用户名）
+    minLikes: number;        // KOL 推文最低点赞数
+    tweetsPerKol: number;    // 每个 KOL 抓取的推文数
+  };
+  fetchCount: number;        // 关键词搜索抓取数量
 }
 
 interface DomainTweet {
@@ -133,6 +180,8 @@ interface DomainTweet {
   hashtags: string[];
   createdAt: string;
   url: string;
+  source: 'search' | 'kol';  // 推文来源：关键词搜索 或 KOL 监控
+  isKol: boolean;            // 作者是否为 KOL
 }
 
 interface DomainTrendItem {
@@ -160,31 +209,40 @@ interface DomainTrendItem {
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  3. 调用 twitterapi.io 获取推文                              │
-│  - 分页抓取直到达到 fetchCount                               │
-│  - 过滤和去重                                                │
+│  3. 并行抓取数据                                             │
+│  ┌─────────────────────┐    ┌─────────────────────┐         │
+│  │ 关键词搜索          │    │ KOL 推文抓取        │         │
+│  │ advanced_search API │    │ user/last_tweets    │         │
+│  │ 抓取 fetchCount 条  │    │ 每个 KOL 5 条       │         │
+│  └─────────────────────┘    └─────────────────────┘         │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  4. 数据聚合                                                 │
+│  4. 合并与去重                                               │
+│  - 按 tweet.id 去重                                          │
+│  - 标记推文来源（搜索/KOL）                                  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│  5. 数据聚合                                                 │
 │  - 按 hashtag 聚合统计                                       │
 │  - 按话题关键词聚合                                          │
-│  - 计算综合热度分数                                          │
+│  - 计算综合热度分数（KOL 推文加权）                          │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  5. 转换为 TrendItem 格式（与 x-trends 一致）                │
+│  6. 转换为 TrendItem 格式（与 x-trends 一致）                │
 │  - rank, topic, engagement, url                             │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  6. Claude CLI 分析生成选题建议                              │
+│  7. Claude CLI 分析生成选题建议                              │
 │  - 复用 x-trends 的 prompt 模板                             │
 │  - 输出 JSON 格式报告                                        │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│  7. 缓存结果到 skillCache                                    │
+│  8. 缓存结果到 skillCache                                    │
 │  - 按小时存储                                                │
 │  - 支持历史查看                                              │
 └─────────────────────────────────────────────────────────────┘
@@ -209,6 +267,20 @@ interface DomainTrendItem {
     "languages": ["en"],
     "excludeRetweets": true
   },
+  "kols": {
+    "enabled": true,
+    "accounts": [
+      "VitalikButerin",
+      "caboris",
+      "punk6529",
+      "cdixon",
+      "CryptoHayes",
+      "dieterthemieter",
+      "jessepollak"
+    ],
+    "minLikes": 100,
+    "tweetsPerKol": 5
+  },
   "fetchCount": 200
 }
 ```
@@ -227,6 +299,21 @@ interface DomainTrendItem {
     "languages": ["en"],
     "excludeRetweets": true
   },
+  "kols": {
+    "enabled": true,
+    "accounts": [
+      "sama",
+      "kaboris",
+      "AnthropicAI",
+      "OpenAI",
+      "ylecun",
+      "drjimfan",
+      "emaboris",
+      "swyx"
+    ],
+    "minLikes": 200,
+    "tweetsPerKol": 5
+  },
   "fetchCount": 200
 }
 ```
@@ -244,6 +331,19 @@ interface DomainTrendItem {
     "minLikes": 50,
     "languages": ["en", "ja"],
     "excludeRetweets": true
+  },
+  "kols": {
+    "enabled": true,
+    "accounts": [
+      "Xbox",
+      "PlayStation",
+      "NintendoAmerica",
+      "geoffkeighley",
+      "jaboris",
+      "TimSweeneyEpic"
+    ],
+    "minLikes": 100,
+    "tweetsPerKol": 5
   },
   "fetchCount": 200
 }
@@ -276,6 +376,9 @@ export class TwitterApiClient {
     this.apiKey = config.apiKey;
   }
 
+  /**
+   * 按关键词搜索推文
+   */
   async search(query: string, count: number = 100): Promise<DomainTweet[]> {
     const tweets: DomainTweet[] = [];
     let cursor = '';
@@ -310,6 +413,55 @@ export class TwitterApiClient {
     }
 
     return tweets;
+  }
+
+  /**
+   * 获取 KOL 用户的最新推文
+   */
+  async getUserTweets(username: string, count: number = 10): Promise<DomainTweet[]> {
+    const response = await fetch(`${this.baseUrl}/twitter/user/last_tweets`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userName: username,
+        count: count
+      })
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to fetch tweets for @${username}: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return (data.tweets || []).map((t: RawTweet) => this.transformTweet(t));
+  }
+
+  /**
+   * 批量获取多个 KOL 的推文
+   */
+  async getKolTweets(
+    accounts: string[],
+    tweetsPerKol: number,
+    minLikes: number
+  ): Promise<DomainTweet[]> {
+    const allTweets: DomainTweet[] = [];
+
+    for (const username of accounts) {
+      try {
+        const tweets = await this.getUserTweets(username, tweetsPerKol * 2);
+        // 过滤低互动的推文
+        const filtered = tweets.filter(t => t.likes >= minLikes);
+        allTweets.push(...filtered.slice(0, tweetsPerKol));
+      } catch (error) {
+        console.warn(`Error fetching @${username}:`, error);
+      }
+    }
+
+    return allTweets;
   }
 
   private transformTweet(raw: RawTweet): DomainTweet {

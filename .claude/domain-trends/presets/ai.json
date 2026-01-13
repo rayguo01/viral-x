@@ -1,12 +1,14 @@
 {
   "id": "ai",
   "name": "AI 趋势",
-  "description": "追踪人工智能、机器学习、大模型领域热点",
+  "description": "追踪 AI 核心 KOL 动态",
   "hoursAgo": 24,
   "query": {
-    "keywords": ["AI", "GPT", "LLM", "machine learning", "ChatGPT", "Claude"],
-    "hashtags": ["AI", "MachineLearning", "GPT", "LLM", "OpenAI", "Anthropic"],
-    "minLikes": 20,
+    "enabled": false,
+    "keywords": [],
+    "hashtags": [],
+    "minLikes": 50,
+    "minRetweets": 5,
     "languages": ["en"],
     "excludeRetweets": true
   },
@@ -14,14 +16,17 @@
     "enabled": true,
     "accounts": [
       "sama",
-      "AnthropicAI",
-      "OpenAI",
+      "karpathy",
       "ylecun",
-      "drjimfan",
-      "kaboris",
-      "swyx"
+      "AndrewYNg",
+      "fchollet",
+      "demishassabis",
+      "lexfridman",
+      "DrJimFan",
+      "simonw",
+      "AravSrinivas"
     ],
-    "minLikes": 20,
+    "minLikes": 50,
     "tweetsPerKol": 5
   },
   "fetchCount": 50

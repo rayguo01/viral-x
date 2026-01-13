@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { TwitterApiClient, buildSearchQuery } from './twitter-api-client';
-import { DomainConfig, DomainTweet, DomainTrendItem, AggregatedTopic } from './types';
+import { DomainConfig, DomainTweet, DomainTrendItem, AggregatedTopic, GroupRotationConfig, KolGroup } from './types';
 import { parseRobustJSON } from '../utils/json-parser';
 
 // 路径配置
@@ -38,7 +38,7 @@ export function loadPreset(presetId: string): DomainConfig {
  * 获取所有可用预设
  */
 export function getAvailablePresets(): Array<{ id: string; name: string; description: string }> {
-  const files = fs.readdirSync(PRESETS_DIR).filter(f => f.endsWith('.json'));
+  const files = fs.readdirSync(PRESETS_DIR).filter(f => f.endsWith('.json') && !f.includes('-kol-groups'));
 
   return files.map(file => {
     const content = fs.readFileSync(path.join(PRESETS_DIR, file), 'utf-8');
@@ -49,6 +49,171 @@ export function getAvailablePresets(): Array<{ id: string; name: string; descrip
       description: config.description
     };
   });
+}
+
+/**
+ * 加载分组轮换配置
+ */
+export function loadGroupConfig(presetId: string): GroupRotationConfig {
+  const configPath = path.join(PRESETS_DIR, `${presetId}-kol-groups.json`);
+
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`分组配置不存在: ${presetId}-kol-groups.json`);
+  }
+
+  const content = fs.readFileSync(configPath, 'utf-8');
+  return JSON.parse(content) as GroupRotationConfig;
+}
+
+/**
+ * 根据当前时间获取应该抓取的分组
+ * @param config 分组配置
+ * @param currentHour 当前小时 (0-23)
+ * @returns 当前应该抓取的分组
+ */
+export function getCurrentGroup(config: GroupRotationConfig, currentHour?: number): KolGroup {
+  const hour = currentHour ?? new Date().getHours();
+  // 每 rotationIntervalHours 小时轮换一组
+  // 例如: 0-1点 -> 组0, 2-3点 -> 组1, ... 18-19点 -> 组9, 20-21点 -> 组0 (循环)
+  const groupIndex = Math.floor(hour / config.rotationIntervalHours) % config.totalGroups;
+
+  const group = config.groups.find(g => g.groupId === groupIndex);
+  if (!group) {
+    throw new Error(`找不到分组 ${groupIndex}`);
+  }
+
+  return group;
+}
+
+/**
+ * 抓取指定分组的 KOL 推文
+ */
+export async function fetchGroupTweets(
+  group: KolGroup,
+  config: GroupRotationConfig
+): Promise<DomainTweet[]> {
+  const apiKey = process.env.TWITTER_API_IO_KEY;
+
+  if (!apiKey) {
+    throw new Error('缺少环境变量 TWITTER_API_IO_KEY');
+  }
+
+  const client = new TwitterApiClient({ apiKey });
+
+  console.log(`📡 抓取分组 [${group.groupId}]: ${group.name}`);
+  console.log(`👥 KOL 列表: ${group.accounts.join(', ')}`);
+
+  const tweets = await client.getKolTweets(
+    group.accounts,
+    config.fetchConfig.tweetsPerKol,
+    config.fetchConfig.minLikes
+  );
+
+  console.log(`✅ 获取到 ${tweets.length} 条推文`);
+  return tweets;
+}
+
+/**
+ * 分组轮换模式的主执行函数
+ */
+export async function runWithRotation(presetId: string = 'ai'): Promise<{
+  reportPath: string;
+  report: string;
+  data: any;
+  groupId: number;
+}> {
+  try {
+    console.log(`\n🎯 开始 Domain Trends 分组轮换抓取 [${presetId}]`);
+
+    // 1. 加载分组配置
+    const groupConfig = loadGroupConfig(presetId);
+    console.log(`📋 配置: ${groupConfig.name}`);
+
+    // 2. 获取当前分组
+    const currentHour = new Date().getHours();
+    const group = getCurrentGroup(groupConfig, currentHour);
+    console.log(`⏰ 当前时间: ${currentHour}:00, 轮换到分组 ${group.groupId}`);
+
+    // 3. 抓取该分组的推文
+    const tweets = await fetchGroupTweets(group, groupConfig);
+
+    if (tweets.length === 0) {
+      throw new Error('未获取到任何推文');
+    }
+
+    // 4. 保存原始数据
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+    const rawFilename = `${presetId}_group${group.groupId}_tweets_${dateStr}.json`;
+    const rawPath = path.join(TRENDS_DIR, rawFilename);
+
+    fs.writeFileSync(rawPath, JSON.stringify(tweets, null, 2));
+    console.log(`✅ 原始数据已保存: ${rawPath}`);
+
+    // 5. 聚合数据
+    const trendItems = aggregateTweets(tweets);
+    console.log(`📊 聚合后话题数: ${trendItems.length}`);
+
+    // 6. Claude 分析 - 使用简化的配置对象
+    const analysisConfig: DomainConfig = {
+      id: groupConfig.id,
+      name: `${groupConfig.name} - ${group.name}`,
+      description: groupConfig.description,
+      hoursAgo: groupConfig.hoursAgo,
+      query: {
+        enabled: false,
+        keywords: [],
+        hashtags: [],
+        minLikes: 0,
+        languages: [],
+        excludeRetweets: true
+      },
+      kols: {
+        enabled: true,
+        accounts: group.accounts,
+        minLikes: groupConfig.fetchConfig.minLikes,
+        tweetsPerKol: groupConfig.fetchConfig.tweetsPerKol
+      },
+      fetchCount: 50
+    };
+
+    const rawOutput = await analyzeTrends(trendItems, analysisConfig);
+
+    console.log('📋 正在解析 JSON 输出...');
+    const data = parseAndValidateJSON(rawOutput);
+
+    // 7. 保存报告
+    const reportFilename = `${presetId}_group${group.groupId}_analysis_${dateStr}.json`;
+    const reportPath = path.join(TRENDS_DIR, reportFilename);
+
+    const finalData = {
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        source: `domain-trends:${presetId}`,
+        preset: presetId,
+        presetName: groupConfig.name,
+        groupId: group.groupId,
+        groupName: group.name,
+        kolCount: group.accounts.length,
+        tweetCount: tweets.length,
+        rawDataFile: rawFilename
+      },
+      ...data
+    };
+
+    fs.writeFileSync(reportPath, JSON.stringify(finalData, null, 2), 'utf-8');
+    console.log(`✅ 分析报告已保存: ${reportPath}`);
+
+    return {
+      reportPath,
+      report: JSON.stringify(finalData),
+      data: finalData,
+      groupId: group.groupId
+    };
+
+  } catch (error) {
+    console.error('❌ Domain Trends 分组轮换执行出错:', error);
+    throw error;
+  }
 }
 
 /**
@@ -65,37 +230,43 @@ export async function fetchTweets(config: DomainConfig): Promise<DomainTweet[]> 
   const allTweets: DomainTweet[] = [];
   const seenIds = new Set<string>();
 
-  // 1. 关键词搜索（默认24小时内）
-  const hoursAgo = config.hoursAgo ?? 24;
-  const query = buildSearchQuery(config.query, hoursAgo);
-  console.log(`📡 搜索查询: ${query}`);
-  console.log(`⏰ 时间范围: 最近 ${hoursAgo} 小时`);
+  // 1. 关键词搜索（默认24小时内）- 可通过配置禁用
+  const queryEnabled = config.query.enabled !== false;  // 默认启用
 
-  const searchTweets = await client.search(
-    query,
-    config.fetchCount * 2,  // 多获取一些，因为要过滤
-    config.kols.enabled ? config.kols.accounts : []
-  );
+  if (queryEnabled) {
+    const hoursAgo = config.hoursAgo ?? 24;
+    const query = buildSearchQuery(config.query, hoursAgo);
+    console.log(`📡 搜索查询: ${query}`);
+    console.log(`⏰ 时间范围: 最近 ${hoursAgo} 小时`);
 
-  // 在代码中过滤 minLikes 和 minRetweets (API 不支持这些查询参数)
-  const minLikes = config.query.minLikes || 0;
-  const minRetweets = config.query.minRetweets || 0;
-  let filteredCount = 0;
+    const searchTweets = await client.search(
+      query,
+      config.fetchCount * 2,  // 多获取一些，因为要过滤
+      config.kols.enabled ? config.kols.accounts : []
+    );
 
-  for (const tweet of searchTweets) {
-    if (!seenIds.has(tweet.id)) {
-      // 过滤低互动推文
-      if (tweet.likes >= minLikes && tweet.retweets >= minRetweets) {
-        seenIds.add(tweet.id);
-        allTweets.push(tweet);
-        if (allTweets.length >= config.fetchCount) break;
-      } else {
-        filteredCount++;
+    // 在代码中过滤 minLikes 和 minRetweets (API 不支持这些查询参数)
+    const minLikes = config.query.minLikes || 0;
+    const minRetweets = config.query.minRetweets || 0;
+    let filteredCount = 0;
+
+    for (const tweet of searchTweets) {
+      if (!seenIds.has(tweet.id)) {
+        // 过滤低互动推文
+        if (tweet.likes >= minLikes && tweet.retweets >= minRetweets) {
+          seenIds.add(tweet.id);
+          allTweets.push(tweet);
+          if (allTweets.length >= config.fetchCount) break;
+        } else {
+          filteredCount++;
+        }
       }
     }
-  }
 
-  console.log(`✅ 关键词搜索: ${searchTweets.length} 条 → 过滤后 ${allTweets.length} 条 (过滤 ${filteredCount} 条低互动)`);
+    console.log(`✅ 关键词搜索: ${searchTweets.length} 条 → 过滤后 ${allTweets.length} 条 (过滤 ${filteredCount} 条低互动)`);
+  } else {
+    console.log(`⏭️ 关键词搜索已禁用，跳过`);
+  }
 
   // 2. KOL 推文抓取
   if (config.kols.enabled && config.kols.accounts.length > 0) {
@@ -423,13 +594,28 @@ export async function run(presetId: string = 'web3'): Promise<{
 
 // 命令行执行
 if (require.main === module) {
-  const presetId = process.argv[2] || 'web3';
+  const args = process.argv.slice(2);
+  const mode = args[0] || 'standard';  // standard 或 rotation
+  const presetId = args[1] || (mode === 'rotation' ? 'ai' : 'web3');
 
-  run(presetId).then(result => {
-    console.log('\n📊 分析完成！');
-    console.log(`报告已保存到: ${result.reportPath}`);
-  }).catch(error => {
-    console.error(error);
-    process.exit(1);
-  });
+  if (mode === 'rotation') {
+    // 分组轮换模式
+    runWithRotation(presetId).then(result => {
+      console.log('\n📊 分组轮换抓取完成！');
+      console.log(`分组: ${result.groupId}`);
+      console.log(`报告已保存到: ${result.reportPath}`);
+    }).catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
+  } else {
+    // 传统模式
+    run(presetId).then(result => {
+      console.log('\n📊 分析完成！');
+      console.log(`报告已保存到: ${result.reportPath}`);
+    }).catch(error => {
+      console.error(error);
+      process.exit(1);
+    });
+  }
 }

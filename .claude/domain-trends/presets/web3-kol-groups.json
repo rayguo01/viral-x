@@ -1,0 +1,174 @@
+{
+  "id": "web3",
+  "name": "Web3 趋势 (100 KOL 轮换)",
+  "description": "每2小时轮换抓取一组KOL，20小时覆盖全部100人",
+  "hoursAgo": 24,
+  "rotationIntervalHours": 2,
+  "totalGroups": 10,
+  "groups": [
+    {
+      "groupId": 0,
+      "name": "组0: 顶级领袖 + DeFi",
+      "accounts": [
+        "VitalikButerin",
+        "cdixon",
+        "sassal0x",
+        "zachxbt",
+        "garyvee",
+        "PeterMcCormack",
+        "TrustlessState",
+        "0xngmi",
+        "justinsuntron",
+        "glassnode"
+      ]
+    },
+    {
+      "groupId": 1,
+      "name": "组1: 机构投资 + 交易",
+      "accounts": [
+        "saylor",
+        "novogratz",
+        "tyler",
+        "lookonchain",
+        "Zeneca_33",
+        "laurashin",
+        "iamDCinvestor",
+        "DefiIgnas",
+        "AndreCronjeTech",
+        "nansen_ai"
+      ]
+    },
+    {
+      "groupId": 2,
+      "name": "组2: 交易所 + NFT",
+      "accounts": [
+        "cz_binance",
+        "jessepollak",
+        "cameron",
+        "cobie",
+        "farokh",
+        "danheld",
+        "adamscochran",
+        "TheDefiEdge",
+        "kaiynne",
+        "Delphi_Digital"
+      ]
+    },
+    {
+      "groupId": 3,
+      "name": "组3: Coinbase + 比特币",
+      "accounts": [
+        "brian_armstrong",
+        "CathieDWood",
+        "ErikVoorhees",
+        "intocryptoverse",
+        "beaniemaxi",
+        "HsakaTrades",
+        "blknoiz06",
+        "Route2FI",
+        "hasufl",
+        "MessariCrypto"
+      ]
+    },
+    {
+      "groupId": 4,
+      "name": "组4: 媒体 + 分析",
+      "accounts": [
+        "APompliano",
+        "StaniKulechov",
+        "adam3us",
+        "gmoneyNFT",
+        "CryptoWendyO",
+        "inversebrah",
+        "milesdeutscher",
+        "CryptoGodJohn",
+        "TheBlock__",
+        "CryptoKaleo"
+      ]
+    },
+    {
+      "groupId": 5,
+      "name": "组5: NFT + 教育",
+      "accounts": [
+        "punk6529",
+        "haydenzadams",
+        "NickSzabo4",
+        "kevinrose",
+        "TheCryptoDog",
+        "Rewkang",
+        "punk9059",
+        "CredibleCrypto",
+        "CoinDesk",
+        "coinaboreau"
+      ]
+    },
+    {
+      "groupId": 6,
+      "name": "组6: 交易 + DeFi",
+      "accounts": [
+        "CryptoHayes",
+        "rleshner",
+        "SatoshiLite",
+        "Pranksy",
+        "scottmelker",
+        "pierre_crypt0",
+        "0xQuit",
+        "CryptoCred",
+        "WuBlockchain",
+        "TheCryptoLark"
+      ]
+    },
+    {
+      "groupId": 7,
+      "name": "组7: 宏观 + Solana",
+      "accounts": [
+        "RaoulGMI",
+        "ToneVays",
+        "pentoshi",
+        "AltcoinDailyio",
+        "NFTherder",
+        "LucaNetz",
+        "CryptoDonAlt",
+        "MacnBTC",
+        "davidgokhshtein",
+        "PlanB"
+      ]
+    },
+    {
+      "groupId": 8,
+      "name": "组8: 教育 + 数据",
+      "accounts": [
+        "aantonop",
+        "IvanOnTech",
+        "layahheilpern",
+        "RyanSAdams",
+        "natealexnft",
+        "betty_nft",
+        "CryptoCapo_",
+        "WClementeIII",
+        "0xMert_",
+        "FrankReswordbch"
+      ]
+    },
+    {
+      "groupId": 9,
+      "name": "组9: 思想家 + 链上分析",
+      "accounts": [
+        "balajis",
+        "Ashcryptoreal",
+        "CryptoRover",
+        "GirlGone_Crypto",
+        "Missteencrypto",
+        "HaileyLennonBTC",
+        "CryptoBrekkie",
+        "MustStopMurad",
+        "EricCryptoman",
+        "woonomic"
+      ]
+    }
+  ],
+  "fetchConfig": {
+    "minLikes": 50,
+    "tweetsPerKol": 5
+  }
+}

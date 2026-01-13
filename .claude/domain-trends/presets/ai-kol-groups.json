@@ -1,0 +1,174 @@
+{
+  "id": "ai",
+  "name": "AI 趋势 (100 KOL 轮换)",
+  "description": "每2小时轮换抓取一组KOL，20小时覆盖全部100人",
+  "hoursAgo": 24,
+  "rotationIntervalHours": 2,
+  "totalGroups": 10,
+  "groups": [
+    {
+      "groupId": 0,
+      "name": "组0: 顶级领袖 + 研究者",
+      "accounts": [
+        "sama",
+        "DarioAmodei",
+        "OriolVinyalsML",
+        "simonw",
+        "timnitGebru",
+        "OpenAI",
+        "MIT_CSAIL",
+        "hardmaru",
+        "rowancheung",
+        "percyliang"
+      ]
+    },
+    {
+      "groupId": 1,
+      "name": "组1: 深度学习先驱",
+      "accounts": [
+        "ylecun",
+        "AravSrinivas",
+        "lilianweng",
+        "alliekmiller",
+        "emilymbender",
+        "AnthropicAI",
+        "IBMData",
+        "AnimaAnandkumar",
+        "tunguz",
+        "jacobandreas"
+      ]
+    },
+    {
+      "groupId": 2,
+      "name": "组2: OpenAI 核心圈",
+      "accounts": [
+        "karpathy",
+        "alexandr_wang",
+        "srush_nlp",
+        "KirkDBorne",
+        "joabordes",
+        "DeepMind",
+        "bing",
+        "DrJimFan",
+        "svpino",
+        "chelseabfinn"
+      ]
+    },
+    {
+      "groupId": 3,
+      "name": "组3: 教育与布道",
+      "accounts": [
+        "AndrewYNg",
+        "Thom_Wolf",
+        "_jasonwei",
+        "Ronald_vanLoon",
+        "maborsh",
+        "GoogleAI",
+        "StabilityAI",
+        "rasbt",
+        "oaborin",
+        "piaborun"
+      ]
+    },
+    {
+      "groupId": 4,
+      "name": "组4: DeepMind 与研究",
+      "accounts": [
+        "demishassabis",
+        "julien_c",
+        "soumithchintala",
+        "DeepLearn007",
+        "raborin",
+        "MetaAI",
+        "peraborxa",
+        "douwekiela",
+        "chiphuyen",
+        "saborusin"
+      ]
+    },
+    {
+      "groupId": 5,
+      "name": "组5: 播客与媒体",
+      "accounts": [
+        "lexfridman",
+        "jeremyphoward",
+        "amuellerml",
+        "petesargen",
+        "jabyson",
+        "nvidia",
+        "clem_delangue",
+        "fhuszar",
+        "hwchase17",
+        "jaaborsh"
+      ]
+    },
+    {
+      "groupId": 6,
+      "name": "组6: OpenAI 领导层",
+      "accounts": [
+        "gdb",
+        "arthurmensch",
+        "fabordelon",
+        "swaboroda",
+        "maborgh",
+        "huggingface",
+        "elaborad",
+        "an_open_mind",
+        "mattshumer_",
+        "naborlin"
+      ]
+    },
+    {
+      "groupId": 7,
+      "name": "组7: Keras 与框架",
+      "accounts": [
+        "fchollet",
+        "EMostaque",
+        "emaborla",
+        "refikanadol",
+        "saborin",
+        "midjourney",
+        "ylaborin",
+        "BristowColin",
+        "paboris",
+        "jabobo"
+      ]
+    },
+    {
+      "groupId": 8,
+      "name": "组8: 学术界",
+      "accounts": [
+        "drfeifei",
+        "AidanGomez",
+        "dpkingma",
+        "nigewillson",
+        "GroqInc",
+        "geoffreyhinton",
+        "jxnlco",
+        "erikbryn",
+        "ch402",
+        "Reza_Zadeh"
+      ]
+    },
+    {
+      "groupId": 9,
+      "name": "组9: AI 安全与伦理",
+      "accounts": [
+        "GaryMarcus",
+        "jerryjliu0",
+        "goodfellow_ian",
+        "JeffDean",
+        "ESYudkowsky",
+        "xaborai",
+        "joybabolivieri",
+        "danielaamodei",
+        "sarahookr",
+        "davidsholz"
+      ]
+    }
+  ],
+  "fetchConfig": {
+    "minLikes": 50,
+    "tweetsPerKol": 5
+  }
+}

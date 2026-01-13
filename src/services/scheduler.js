@@ -3,7 +3,9 @@
  *
  * 功能：
  * 1. 每小时1分钟自动抓取 x-trends、tophub-trends
- * 2. 每8小时（0:01, 8:01, 16:01）抓取 domain-trends
+ * 2. domain-trends 支持两种模式：
+ *    - 传统模式：每8小时抓取全部 KOL
+ *    - 轮换模式：每2小时抓取一组 KOL（100个KOL分10组，20小时覆盖全部）
  * 3. 抓取结果保存到 skillCache
  * 4. 服务启动时检查并执行必要的抓取
  */
@@ -55,8 +57,8 @@ class Scheduler {
     }
 
     /**
-     * 获取 domain-trends 的所有预设
-     * @returns {Array<{id: string, name: string}>}
+     * 获取 domain-trends 的所有预设（排除分组配置文件）
+     * @returns {Array<{id: string, name: string, hasRotation: boolean}>}
      */
     getDomainPresets() {
         const presetsDir = path.join(__dirname, '../../.claude/domain-trends/presets');
@@ -65,11 +67,17 @@ class Scheduler {
         }
 
         try {
-            const files = fs.readdirSync(presetsDir).filter(f => f.endsWith('.json'));
+            // 排除 -kol-groups.json 文件
+            const files = fs.readdirSync(presetsDir)
+                .filter(f => f.endsWith('.json') && !f.includes('-kol-groups'));
+
             return files.map(file => {
                 const content = fs.readFileSync(path.join(presetsDir, file), 'utf-8');
                 const config = JSON.parse(content);
-                return { id: config.id, name: config.name };
+                // 检查是否有对应的分组轮换配置
+                const rotationConfigPath = path.join(presetsDir, `${config.id}-kol-groups.json`);
+                const hasRotation = fs.existsSync(rotationConfigPath);
+                return { id: config.id, name: config.name, hasRotation };
             });
         } catch (err) {
             console.error('[调度器] 读取 domain-trends 预设失败:', err.message);
@@ -78,18 +86,63 @@ class Scheduler {
     }
 
     /**
+     * 获取分组轮换配置
+     * @param {string} presetId
+     * @returns {Object|null}
+     */
+    getRotationConfig(presetId) {
+        const configPath = path.join(__dirname, '../../.claude/domain-trends/presets', `${presetId}-kol-groups.json`);
+        if (!fs.existsSync(configPath)) {
+            return null;
+        }
+
+        try {
+            const content = fs.readFileSync(configPath, 'utf-8');
+            return JSON.parse(content);
+        } catch (err) {
+            console.error(`[调度器] 读取分组配置 ${presetId} 失败:`, err.message);
+            return null;
+        }
+    }
+
+    /**
+     * 检查当前小时是否是轮换抓取时间（每偶数小时）
+     * @returns {boolean}
+     */
+    isRotationFetchHour() {
+        const hour = new Date().getHours();
+        return hour % 2 === 0;  // 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22
+    }
+
+    /**
+     * 获取当前应该抓取的分组ID
+     * @param {Object} rotationConfig
+     * @returns {number}
+     */
+    getCurrentGroupId(rotationConfig) {
+        const hour = new Date().getHours();
+        const interval = rotationConfig.rotationIntervalHours || 2;
+        return Math.floor(hour / interval) % rotationConfig.totalGroups;
+    }
+
+    /**
      * 执行单个 skill 抓取
-     * @param {string} skillId - x-trends、tophub-trends 或 domain-trends:preset
+     * @param {string} skillId - x-trends、tophub-trends 或 domain-trends:preset 或 domain-trends-rotation:preset
      * @returns {Promise<string>} 抓取结果
      */
     async executeSkill(skillId) {
         console.log(`[调度器] 开始抓取 ${skillId}...`);
 
-        // 解析 skillId，支持 domain-trends:preset 格式
+        // 解析 skillId，支持多种格式
         let baseSkillId = skillId;
         let preset = null;
+        let isRotationMode = false;
 
-        if (skillId.startsWith('domain-trends:')) {
+        if (skillId.startsWith('domain-trends-rotation:')) {
+            baseSkillId = 'domain-trends';
+            preset = skillId.split(':')[1];
+            isRotationMode = true;
+        } else if (skillId.startsWith('domain-trends:')) {
             baseSkillId = 'domain-trends';
             preset = skillId.split(':')[1];
         }
@@ -115,7 +168,14 @@ class Scheduler {
         return new Promise((resolve, reject) => {
             // 构建命令参数
             const args = ['ts-node', scriptPath];
-            if (preset) {
+
+            if (isRotationMode) {
+                // 轮换模式：npx ts-node script.ts rotation preset
+                args.push('rotation');
+                args.push(preset);
+            } else if (preset) {
+                // 传统模式：npx ts-node script.ts standard preset
+                args.push('standard');
                 args.push(preset);
             }
 
@@ -144,11 +204,17 @@ class Scheduler {
                 if (code === 0) {
                     // 读取生成的报告
                     try {
-                        let outputDir, prefix, fileExt = '.json';
+                        let outputDir, prefix;
 
                         if (baseSkillId === 'domain-trends') {
                             outputDir = path.join(__dirname, '../../outputs/trends/domain');
-                            prefix = `${preset}_analysis`;
+                            // 轮换模式的文件名包含 group
+                            if (isRotationMode) {
+                                const groupId = this.getCurrentGroupId(this.getRotationConfig(preset));
+                                prefix = `${preset}_group${groupId}_analysis`;
+                            } else {
+                                prefix = `${preset}_analysis`;
+                            }
                         } else {
                             outputDir = path.join(__dirname, '../../outputs/trends');
                             prefix = skillId === 'x-trends' ? 'x_trends_analysis' : 'tophub_analysis';
@@ -204,14 +270,28 @@ class Scheduler {
         // 基础趋势 skills（每小时抓取）
         const skills = ['x-trends', 'tophub-trends'];
 
-        // domain-trends 每8小时抓取（0点、8点、16点）
-        const shouldFetchDomain = forceDomainTrends || this.isDomainTrendsFetchHour();
-        if (shouldFetchDomain) {
-            const domainPresets = this.getDomainPresets();
-            for (const preset of domainPresets) {
-                skills.push(`domain-trends:${preset.id}`);
+        // domain-trends 处理
+        const domainPresets = this.getDomainPresets();
+        const currentHour = new Date().getHours();
+
+        for (const preset of domainPresets) {
+            if (preset.hasRotation) {
+                // 轮换模式：每2小时（偶数小时）抓取
+                const shouldFetch = forceDomainTrends || this.isRotationFetchHour();
+                if (shouldFetch) {
+                    const rotationConfig = this.getRotationConfig(preset.id);
+                    const groupId = this.getCurrentGroupId(rotationConfig);
+                    skills.push(`domain-trends-rotation:${preset.id}`);
+                    console.log(`[调度器] ${preset.id} 轮换模式: 当前组 ${groupId}（每2小时）`);
+                }
+            } else {
+                // 传统模式：每8小时抓取
+                const shouldFetch = forceDomainTrends || this.isDomainTrendsFetchHour();
+                if (shouldFetch) {
+                    skills.push(`domain-trends:${preset.id}`);
+                    console.log(`[调度器] ${preset.id} 传统模式（每8小时）`);
+                }
             }
-            console.log(`[调度器] 当前是 domain-trends 抓取时间（每8小时）`);
         }
 
         console.log(`[调度器] 待抓取: ${skills.join(', ')}`);
@@ -219,8 +299,19 @@ class Scheduler {
         for (const skillId of skills) {
             try {
                 const report = await this.executeSkillWithRetry(skillId);
-                skillCache.set(skillId, report);
-                console.log(`[调度器] ${skillId} 缓存已更新`);
+
+                // 确定缓存 key
+                let cacheKey = skillId;
+                if (skillId.startsWith('domain-trends-rotation:')) {
+                    // 轮换模式的缓存 key 包含组ID
+                    const presetId = skillId.split(':')[1];
+                    const rotationConfig = this.getRotationConfig(presetId);
+                    const groupId = this.getCurrentGroupId(rotationConfig);
+                    cacheKey = `domain-trends:${presetId}:group${groupId}`;
+                }
+
+                skillCache.set(cacheKey, report);
+                console.log(`[调度器] ${cacheKey} 缓存已更新`);
             } catch (err) {
                 console.error(`[调度器] ${skillId} 抓取失败（已重试 ${this.maxRetries} 次）:`, err.message);
                 // 抓取失败不影响其他 skill
@@ -289,6 +380,34 @@ class Scheduler {
     }
 
     /**
+     * 检查轮换模式缓存是否有效（当前2小时窗口内）
+     * @param {string} presetId
+     * @returns {boolean}
+     */
+    isRotationCacheValid(presetId) {
+        const rotationConfig = this.getRotationConfig(presetId);
+        if (!rotationConfig) return false;
+
+        const groupId = this.getCurrentGroupId(rotationConfig);
+        const cacheKey = `domain-trends:${presetId}:group${groupId}`;
+        const cached = skillCache.get(cacheKey);
+
+        if (!cached || !cached.generatedAt) {
+            return false;
+        }
+
+        const cacheTime = new Date(cached.generatedAt);
+        const now = new Date();
+
+        // 检查缓存是否在当前2小时窗口内
+        const currentWindowStart = Math.floor(now.getHours() / 2) * 2;
+        const windowStartTime = new Date(now);
+        windowStartTime.setHours(currentWindowStart, 0, 0, 0);
+
+        return cacheTime >= windowStartTime;
+    }
+
+    /**
      * 启动定时任务
      * cron 格式: 分 时 日 月 星期
      * "1 * * * *" = 每小时的第1分钟
@@ -304,8 +423,9 @@ class Scheduler {
 
         this.jobs.set('trends', job);
         console.log('[调度器] 定时任务已启动：');
-        console.log('  - x-trends/tophub-trends: 每小时1分钟');
-        console.log('  - domain-trends: 每8小时（0:01, 8:01, 16:01）');
+        console.log('  - x-trends/tophub-trends: 每小时');
+        console.log('  - domain-trends (轮换模式): 每2小时轮换一组');
+        console.log('  - domain-trends (传统模式): 每8小时');
 
         // 启动时检查是否需要抓取
         const needFetchHourly = [];
@@ -315,13 +435,24 @@ class Scheduler {
         if (!this.isCacheFromCurrentHour('x-trends')) needFetchHourly.push('x-trends');
         if (!this.isCacheFromCurrentHour('tophub-trends')) needFetchHourly.push('tophub-trends');
 
-        // 检查 domain-trends 各预设（8小时窗口）
+        // 检查 domain-trends 各预设
         const domainPresets = this.getDomainPresets();
         for (const preset of domainPresets) {
-            const cacheKey = `domain-trends:${preset.id}`;
-            if (!this.isDomainCacheValid(cacheKey)) {
-                needFetchDomain = true;
-                needFetchHourly.push(cacheKey);
+            if (preset.hasRotation) {
+                // 轮换模式：检查当前组的缓存
+                if (!this.isRotationCacheValid(preset.id)) {
+                    needFetchDomain = true;
+                    const rotationConfig = this.getRotationConfig(preset.id);
+                    const groupId = this.getCurrentGroupId(rotationConfig);
+                    needFetchHourly.push(`domain-trends-rotation:${preset.id} (组${groupId})`);
+                }
+            } else {
+                // 传统模式：8小时窗口
+                const cacheKey = `domain-trends:${preset.id}`;
+                if (!this.isDomainCacheValid(cacheKey)) {
+                    needFetchDomain = true;
+                    needFetchHourly.push(cacheKey);
+                }
             }
         }
 
