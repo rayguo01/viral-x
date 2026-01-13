@@ -275,12 +275,22 @@ class SkillCache {
     }
 
     /**
-     * 设置缓存（存储到当前小时）
+     * 设置缓存
+     * - 普通趋势：存储到当前小时
+     * - domain-trends：存储到当前8小时窗口起点 (00, 08, 16)
      * @param {string} skillId
      * @param {string} content
      */
     set(skillId, content) {
-        const hourKey = this.getHourKey();
+        let hourKey;
+        if (skillId.startsWith('domain-trends:')) {
+            // domain-trends 存储到固定的 8 小时窗口起点
+            const currentHour = new Date().getHours();
+            const windowStart = Math.floor(currentHour / 8) * 8;
+            hourKey = String(windowStart).padStart(2, '0');
+        } else {
+            hourKey = this.getHourKey();
+        }
         const now = Date.now();
 
         // 初始化 skillId 的 Map

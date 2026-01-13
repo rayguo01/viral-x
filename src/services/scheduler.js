@@ -259,16 +259,18 @@ class Scheduler {
      * @returns {boolean}
      */
     isDomainCacheValid(skillId) {
-        const cached = skillCache.get(skillId);
+        // domain-trends 存储在固定的 hourKey (00, 08, 16)
+        // 需要查找当前窗口对应的 hourKey
+        const now = new Date();
+        const currentWindowStart = Math.floor(now.getHours() / 8) * 8;
+        const hourKey = String(currentWindowStart).padStart(2, '0');
+
+        const cached = skillCache.getByHour(skillId, hourKey);
         if (!cached || !cached.generatedAt) {
             return false;
         }
 
-        const now = new Date();
         const cacheTime = new Date(cached.generatedAt);
-
-        // 计算当前8小时窗口的开始时间
-        const currentWindowStart = Math.floor(now.getHours() / 8) * 8;
         const windowStartTime = new Date(now);
         windowStartTime.setHours(currentWindowStart, 0, 0, 0);
 
