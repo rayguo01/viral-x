@@ -551,6 +551,22 @@ router.post('/:id/execute-step', authenticate, async (req, res) => {
 选题角度: ${topic?.angle || topic?.选题角度 || ''}
 创作方向: ${topic?.direction || topic?.创作方向 || ''}`;
                 }
+
+                // 处理语气风格选择
+                if (input?.voiceStyleId) {
+                    try {
+                        const voicePromptDb = require('../services/voicePromptDb');
+                        const voicePrompt = await voicePromptDb.getById(input.voiceStyleId, req.user.userId);
+                        if (voicePrompt && voicePrompt.prompt_content) {
+                            // 将语气 prompt 附加到用户输入
+                            userInput = `${userInput}\n\n===写作风格指南===\n请严格按照以下语气风格进行创作：\n\n${voicePrompt.prompt_content}`;
+                            console.log(`[content] 使用语气风格: @${voicePrompt.username}`);
+                        }
+                    } catch (e) {
+                        console.warn('[content] 获取语气风格失败:', e.message);
+                    }
+                }
+
                 outputDir = path.join(__dirname, '../../outputs/content');
                 prefix = 'content_';
                 break;

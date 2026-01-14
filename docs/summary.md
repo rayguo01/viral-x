@@ -1,8 +1,41 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.9.20
+## 版本: v2.9.21
 
 ## 完成的工作
+
+### 3.41 内容生成支持写作风格模拟 (v2.9.21)
+
+**功能**：在"生成内容"环节添加"写作风格模拟"选择器，用户可以选择已保存的语气风格来生成内容。
+
+**实现**：
+
+1. **前端 UI**（`public/js/generator/pages/content.js`）：
+   - 新增 `loadVoiceStyles()` - 加载用户保存的语气列表
+   - 新增 `renderVoiceStyleOptions()` - 渲染语气选项（默认语气 + 已保存的语气）
+   - 新增 `bindVoiceStyleEvents()` - 绑定语气选择事件
+   - 修改 `generateContent()` - 传递 `voiceStyleId` 到后端
+
+2. **前端样式**（`public/css/generator.css`）：
+   - 新增 `.voice-style-section` 语气选择器区域样式
+   - 新增 `.voice-style-item` 语气选项卡片样式
+
+3. **后端 API**（`src/routes/tasks.js`）：
+   - 在 `content` case 中处理 `voiceStyleId` 参数
+   - 从数据库获取语气 prompt 并附加到用户输入
+
+4. **内容生成器**（`.claude/content-writer/content-writer.ts`）：
+   - 系统 prompt 新增"写作风格说明"部分
+   - 当用户输入包含 `===写作风格指南===` 时，优先使用该风格
+   - 否则使用默认的 "Defou x Stanley" 人格
+
+**UI 交互**：
+- 在"创作素材"文本框下方显示"写作风格模拟"选择器
+- 第一项为"默认语气"（D 图标），使用默认 prompt
+- 其他选项显示已保存的推主头像和用户名
+- 点击选项切换选中状态
+
+---
 
 ### 3.40 修复语气模仿器 user_id 保存问题 (v2.9.20)
 

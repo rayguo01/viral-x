@@ -273,7 +273,7 @@ async function run(username: string): Promise<AnalysisResult> {
   }
 
   if (tweets.length < 3) {
-    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 3 条推文，当前只有 ${tweets.length} 条）。该用户可能推文很少或账号受限。`);
+    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 3 条推文，当前只有 ${tweets.length} 条）。该用户可能近期推文很少或账号受限。`);
   }
 
   console.log(`📊 最终使用 ${tweets.length} 条推文（>= ${minCharsUsed} 字）`);

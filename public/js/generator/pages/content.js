@@ -12,6 +12,43 @@ class ContentPage {
         this.score = null;
         this.suggestions = '';
         this.inputText = ''; // 用户输入的素材文本
+        this.voiceStyles = []; // 用户保存的语气列表
+        this.selectedVoiceStyleId = null; // 选中的语气 ID（null 表示默认）
+
+        // 加载用户的语气列表
+        this.loadVoiceStyles();
+    }
+
+    /**
+     * 加载用户保存的语气列表
+     */
+    async loadVoiceStyles() {
+        try {
+            const response = await fetch('/api/tools/voice-prompts', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.voiceStyles = data.prompts || [];
+                // 重新渲染语气选择器
+                this.updateVoiceStyleSelector();
+            }
+        } catch (error) {
+            console.warn('加载语气列表失败:', error);
+        }
+    }
+
+    /**
+     * 更新语气选择器显示
+     */
+    updateVoiceStyleSelector() {
+        const selector = document.getElementById('voice-style-selector');
+        if (selector) {
+            selector.innerHTML = this.renderVoiceStyleOptions();
+            this.bindVoiceStyleEvents();
+        }
     }
 
     render(container) {
@@ -61,6 +98,56 @@ class ContentPage {
         `;
 
         this.bindEvents(container);
+    }
+
+    /**
+     * 渲染语气选项列表
+     */
+    renderVoiceStyleOptions() {
+        const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+                <circle cx="20" cy="20" r="20" fill="#6366f1"/>
+                <text x="20" y="26" text-anchor="middle" fill="white" font-size="16" font-family="Arial">D</text>
+            </svg>
+        `);
+
+        let html = `
+            <div class="voice-style-item ${!this.selectedVoiceStyleId ? 'selected' : ''}" data-id="">
+                <img src="${defaultAvatar}" alt="默认" class="voice-avatar">
+                <span class="voice-name">默认语气</span>
+            </div>
+        `;
+
+        for (const style of this.voiceStyles) {
+            const isSelected = this.selectedVoiceStyleId === style.id;
+            html += `
+                <div class="voice-style-item ${isSelected ? 'selected' : ''}" data-id="${style.id}">
+                    <img src="${style.avatar_url || defaultAvatar}" alt="${style.username}" class="voice-avatar"
+                         onerror="this.src='${defaultAvatar}'">
+                    <span class="voice-name">@${style.username}</span>
+                </div>
+            `;
+        }
+
+        return html;
+    }
+
+    /**
+     * 绑定语气选择事件
+     */
+    bindVoiceStyleEvents() {
+        const items = document.querySelectorAll('.voice-style-item');
+        items.forEach(item => {
+            item.addEventListener('click', () => {
+                // 移除其他选中状态
+                items.forEach(i => i.classList.remove('selected'));
+                // 选中当前项
+                item.classList.add('selected');
+                // 更新选中的语气 ID
+                const id = item.dataset.id;
+                this.selectedVoiceStyleId = id ? parseInt(id) : null;
+            });
+        });
     }
 
     buildInputText(topic) {
@@ -125,6 +212,17 @@ class ContentPage {
                         <div class="input-hint">编辑以下内容作为创作输入，你可以选择一个创作方向；完成后点击生成</div>
                     </div>
                     <textarea class="content-textarea input-textarea" id="input-text" placeholder="输入你的创作素材...">${this.escapeHtml(this.inputText)}</textarea>
+
+                    <div class="voice-style-section">
+                        <div class="voice-style-header">
+                            <div class="voice-style-title">🎭 写作风格模拟</div>
+                            <div class="voice-style-hint">选择一个语气风格，让AI模仿该风格进行创作</div>
+                        </div>
+                        <div class="voice-style-selector" id="voice-style-selector">
+                            ${this.renderVoiceStyleOptions()}
+                        </div>
+                    </div>
+
                     <div class="input-actions">
                         <button class="btn btn-primary btn-large" id="generate-btn">
                             ✨ 生成内容
@@ -265,6 +363,9 @@ class ContentPage {
             });
         }
 
+        // 绑定语气选择事件
+        this.bindVoiceStyleEvents();
+
         // 生成结果编辑框自动调整高度
         const contentInput = container.querySelector('#content-input');
         if (contentInput) {
@@ -317,7 +418,11 @@ class ContentPage {
                 context: this.inputText
             };
 
-            await this.generator.executeStep('content', { topic: customTopic, rawInput: this.inputText }, {
+            await this.generator.executeStep('content', {
+                topic: customTopic,
+                rawInput: this.inputText,
+                voiceStyleId: this.selectedVoiceStyleId
+            }, {
                 start: () => {
                     // 开始
                 },

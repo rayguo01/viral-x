@@ -1767,6 +1767,76 @@
 }
 
 /* ===================================
+   写作风格模拟选择器
+   =================================== */
+.voice-style-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+}
+
+.voice-style-header {
+    margin-bottom: 16px;
+}
+
+.voice-style-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.voice-style-hint {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.voice-style-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.voice-style-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    border: 2px solid var(--border-default);
+    background: var(--surface-card);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.voice-style-item:hover {
+    border-color: var(--border-focus);
+    background: var(--surface-elevated);
+}
+
+.voice-style-item.selected {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.voice-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.voice-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.voice-style-item.selected .voice-name {
+    color: var(--primary);
+}
+
+/* ===================================
    爆款验证报告
    =================================== */
 .verification-report {
