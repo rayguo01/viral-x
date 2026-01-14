@@ -147,6 +147,38 @@ class PostGenerator {
             return;
         }
 
+        // 工具页面（如语气模仿器）隐藏标题和流程图，并激活工具导航
+        const isToolPage = ['voice-mimicker'].includes(pageName);
+        const header = document.getElementById('generator-header');
+        const workflow = document.getElementById('workflow-container');
+        const generatorContent = document.getElementById('generator-content');
+
+        if (header) header.style.display = isToolPage ? 'none' : '';
+        if (workflow) workflow.style.display = isToolPage ? 'none' : '';
+
+        // 工具页面移除 generator-content 的边框和背景，并让容器占满宽度
+        const generatorContainer = document.querySelector('.generator-container');
+        if (generatorContent) {
+            if (isToolPage) {
+                generatorContent.classList.add('tool-page-mode');
+                if (generatorContainer) generatorContainer.classList.add('tool-page-mode');
+            } else {
+                generatorContent.classList.remove('tool-page-mode');
+                if (generatorContainer) generatorContainer.classList.remove('tool-page-mode');
+            }
+        }
+
+        // 工具页面激活工具导航
+        if (isToolPage && window.app) {
+            window.app.currentNav = 'tools';
+            document.querySelectorAll('.sidebar-item[data-nav]').forEach(item => {
+                item.classList.toggle('active', item.dataset.nav === 'tools');
+            });
+            document.querySelectorAll('.bottom-nav-item[data-nav]').forEach(item => {
+                item.classList.toggle('active', item.dataset.nav === 'tools');
+            });
+        }
+
         // 创建页面实例
         this.currentPageInstance = new PageClass(this, params);
         this.currentPageInstance.render(container);

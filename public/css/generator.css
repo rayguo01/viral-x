@@ -3489,36 +3489,39 @@
 /* VM Tab 导航 */
 .vm-tabs {
     display: flex;
-    gap: 4px;
+    gap: 0;
     margin-bottom: 24px;
-    padding: 4px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: var(--radius-full);
-    border: 1px solid var(--border-subtle);
+    padding: 0;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    overflow: hidden;
 }
 
 .vm-tab {
     flex: 1;
-    padding: 12px 20px;
+    padding: 14px 24px;
     border: none;
     background: transparent;
     color: var(--text-muted);
     font-family: inherit;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    border-radius: var(--radius-full);
     transition: var(--transition-smooth);
     text-align: center;
+    position: relative;
 }
 
 .vm-tab:hover {
-    color: var(--text-secondary);
+    color: var(--text-primary);
+    background: rgba(245, 158, 11, 0.08);
 }
 
 .vm-tab.active {
-    background: var(--primary);
-    color: var(--text-inverse);
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
 .vm-content {
