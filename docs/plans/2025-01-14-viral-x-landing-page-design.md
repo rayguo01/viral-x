@@ -22,6 +22,46 @@
 
 ## 落地页结构
 
+### 顶部导航栏 Header
+
+#### 中文版
+
+**布局**：
+```
+[Viral-X Logo]                    功能 | 定价 | FAQ | 登录    [免费试用]
+```
+
+**Logo**：左侧，产品名 "Viral-X" + 图标（建议：闪电/火焰/病毒式传播图形）
+
+**导航链接**：功能 | 定价 | FAQ | 登录
+
+**右侧 CTA**：免费试用（主色按钮）
+
+**语言切换**：🌐 中/EN（下拉或切换按钮）
+
+#### English Version
+
+**Layout**:
+```
+[Viral-X Logo]                    Features | Pricing | FAQ | Login    [Start Free]
+```
+
+**Logo**: Left side, "Viral-X" + icon (suggested: lightning/flame/viral spread graphic)
+
+**Nav Links**: Features | Pricing | FAQ | Login
+
+**Right CTA**: Start Free (primary button)
+
+**Language Toggle**: 🌐 中/EN (dropdown or toggle)
+
+#### 移动端适配
+
+- Logo 左侧保持可见
+- 导航链接收起至汉堡菜单（右侧）
+- CTA 按钮保持可见或放入菜单顶部
+
+---
+
 ### 第一部分：首屏 Hero Section
 
 #### 中文版
