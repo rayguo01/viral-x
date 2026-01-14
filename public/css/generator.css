@@ -2494,11 +2494,23 @@
 }
 
 .voice-column-items .voice-style-item {
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.6);
     padding: 8px 10px;
     flex: 0 0 calc(20% - 7px);
     max-width: calc(20% - 7px);
     min-width: 0;
+    border: 2px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+}
+
+.voice-column-items .voice-style-item:hover {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.voice-column-items .voice-style-item.selected {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
 }
 
 .voice-column-items .voice-style-item .voice-avatar {
