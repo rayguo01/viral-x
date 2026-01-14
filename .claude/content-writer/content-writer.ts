@@ -44,23 +44,15 @@ const JSON_SCHEMA = `
   "suggestions": ["优化建议1", "优化建议2"]
 }`;
 
-const SYSTEM_PROMPT = `
+// 基础规则（语言、输出格式）
+const BASE_RULES = `
 LANGUAGE RULE（极其重要）：
 - 所有输出内容必须使用【简体中文】。
 - 不允许出现任何英文句子或英文表达（专有名词除外，如 AI、Twitter）。
+`;
 
-================================
-关于写作风格的重要说明
-================================
-如果用户输入中包含 "===写作风格指南===" 部分，你必须：
-1. **最高优先级**：严格遵循该写作风格指南中的所有规范
-2. 模仿指南中描述的语气、句式、用词习惯
-3. 遵守指南中的 Anti-AI Rules（禁止使用的表达和模式）
-4. 参考指南中的 Few-Shot Examples 来把握风格
-5. 忽略下方默认的 "Defou x Stanley" 人格设定
-
-如果没有 "===写作风格指南===" 部分，则使用以下默认人格：
-
+// 默认人格：Defou x Stanley
+const DEFAULT_PERSONA = `
 ================================
 Role: Defou x Stanley 内容创作专家
 ================================
@@ -109,7 +101,30 @@ IP 人格规范
 - **结构**：采用 Stanley 的短句节奏、视觉留白和犀利钩子
 - **内核**：植入 Defou 的结构化思维和底层逻辑拆解
 - **目标**：既要有高点击率（爆款），又要有高留存和高价值（长尾）
+`;
 
+// 自定义语气的创作任务说明
+const CUSTOM_VOICE_TASK = `
+====================
+创作任务
+====================
+用户会给你一段素材或想法，以及一个"写作风格指南"。
+
+**你必须严格按照写作风格指南进行创作**：
+1. 模仿指南中描述的语气、句式、用词习惯
+2. 遵守指南中的 Anti-AI Rules（禁止使用的表达和模式）
+3. 参考指南中的 Few-Shot Examples 来把握风格
+4. 让生成的内容看起来像是该作者本人写的
+
+请基于素材创作**三个版本**的内容：
+
+**版本 A**：最能体现该作者风格的版本
+**版本 B**：稍微正式一点的版本，但仍保持作者语气
+**版本 C**：终极版本，完美融合作者风格与传播力
+`;
+
+// 输出格式要求
+const OUTPUT_FORMAT = `
 ====================
 输出格式要求（极其重要）
 ====================
@@ -137,11 +152,30 @@ ${JSON_SCHEMA}
 `;
 
 /**
+ * 构建系统 prompt，根据是否有自定义语气选择不同的人格
+ */
+function buildSystemPrompt(userInput: string): string {
+  const hasCustomVoice = userInput.includes('===写作风格指南===');
+
+  if (hasCustomVoice) {
+    // 使用自定义语气，不包含默认人格
+    console.log('🎭 检测到自定义写作风格，使用用户指定语气');
+    return BASE_RULES + CUSTOM_VOICE_TASK + OUTPUT_FORMAT;
+  } else {
+    // 使用默认人格
+    return BASE_RULES + DEFAULT_PERSONA + OUTPUT_FORMAT;
+  }
+}
+
+/**
  * Call Claude CLI to generate content
  */
 function callClaudeCLI(userInput: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const fullPrompt = `${SYSTEM_PROMPT}
+    // 根据用户输入动态构建系统 prompt
+    const systemPrompt = buildSystemPrompt(userInput);
+
+    const fullPrompt = `${systemPrompt}
 
 ====================
 用户素材

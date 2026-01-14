@@ -25,9 +25,9 @@
    - 从数据库获取语气 prompt 并附加到用户输入
 
 4. **内容生成器**（`.claude/content-writer/content-writer.ts`）：
-   - 系统 prompt 新增"写作风格说明"部分
-   - 当用户输入包含 `===写作风格指南===` 时，优先使用该风格
-   - 否则使用默认的 "Defou x Stanley" 人格
+   - 将 SYSTEM_PROMPT 拆分为 `BASE_RULES`、`DEFAULT_PERSONA`、`CUSTOM_VOICE_TASK`、`OUTPUT_FORMAT`
+   - 新增 `buildSystemPrompt()` 函数，根据是否有自定义语气动态构建 prompt
+   - **互斥逻辑**：有自定义语气时不包含默认人格，避免 LLM 混淆
 
 **UI 交互**：
 - 在"创作素材"文本框下方显示"写作风格模拟"选择器
