@@ -2433,7 +2433,24 @@
     text-overflow: ellipsis;
 }
 
-/* 三列布局 */
+/* 行布局 */
+.voice-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    align-items: stretch;
+}
+
+.voice-row .voice-style-item.default-style {
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+.voice-row .voice-column {
+    flex: 1;
+}
+
+/* 三列布局（旧版，保留兼容） */
 .voice-columns {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

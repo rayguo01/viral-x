@@ -20,18 +20,22 @@ class ContentPage {
     }
 
     /**
-     * 加载用户保存的语气列表
+     * 加载用户保存的语气列表（三列数据）
      */
     async loadVoiceStyles() {
         try {
-            const response = await fetch('/api/tools/voice-prompts', {
+            const response = await fetch('/api/tools/voice-prompts/available', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
                 }
             });
             if (response.ok) {
                 const data = await response.json();
-                this.voiceStyles = data.prompts || [];
+                this.voiceStylesData = {
+                    popular: data.popular || [],
+                    mine: data.mine || [],
+                    subscribed: data.subscribed || []
+                };
                 // 重新渲染语气选择器
                 this.updateVoiceStyleSelector();
             }
@@ -61,6 +65,8 @@ class ContentPage {
             this.versionC = task.content_data.versionC || '';
             this.score = task.content_data.score;
             this.suggestions = task.content_data.suggestions || '';
+            // 恢复输入文本
+            this.inputText = task.content_data.inputText || this.buildInputText(topic);
         } else {
             // 从话题信息构建默认输入文本
             this.inputText = this.buildInputText(topic);
@@ -101,7 +107,7 @@ class ContentPage {
     }
 
     /**
-     * 渲染语气选项列表
+     * 渲染语气选项列表（三列布局）
      */
     renderVoiceStyleOptions() {
         const defaultAvatar = 'data:image/svg+xml,' + encodeURIComponent(`
@@ -111,25 +117,64 @@ class ContentPage {
             </svg>
         `);
 
-        let html = `
-            <div class="voice-style-item ${!this.selectedVoiceStyleId ? 'selected' : ''}" data-id="">
-                <img src="${defaultAvatar}" alt="默认" class="voice-avatar">
-                <span class="voice-name">默认语气</span>
-            </div>
-        `;
+        const data = this.voiceStylesData || { popular: [], mine: [], subscribed: [] };
 
-        for (const style of this.voiceStyles) {
+        // 渲染单个语气项
+        const renderItem = (style) => {
             const isSelected = this.selectedVoiceStyleId === style.id;
-            html += `
+            const displayName = style.display_name || style.username;
+            const role = style.role || '';
+            return `
                 <div class="voice-style-item ${isSelected ? 'selected' : ''}" data-id="${style.id}">
-                    <img src="${style.avatar_url || defaultAvatar}" alt="${style.username}" class="voice-avatar"
+                    <img src="${style.avatar_url || defaultAvatar}" alt="${displayName}" class="voice-avatar"
                          onerror="this.src='${defaultAvatar}'">
-                    <span class="voice-name">@${style.username}</span>
+                    <div class="voice-item-info">
+                        <span class="voice-name">${displayName}</span>
+                        ${role ? `<span class="voice-role">${role}</span>` : ''}
+                    </div>
                 </div>
             `;
-        }
+        };
 
-        return html;
+        // 渲染列
+        const renderColumn = (title, items, emptyMsg, emptyLink, emptyLinkText) => {
+            let content = '';
+            if (items.length === 0) {
+                content = `
+                    <div class="voice-column-empty">
+                        <span>${emptyMsg}</span>
+                        ${emptyLink ? `<a href="${emptyLink}" class="voice-empty-link">${emptyLinkText}</a>` : ''}
+                    </div>
+                `;
+            } else {
+                content = items.map(renderItem).join('');
+            }
+            return `
+                <div class="voice-column">
+                    <div class="voice-column-title">${title}</div>
+                    <div class="voice-column-items">${content}</div>
+                </div>
+            `;
+        };
+
+        return `
+            <div class="voice-row">
+                <div class="voice-style-item default-style ${!this.selectedVoiceStyleId ? 'selected' : ''}" data-id="">
+                    <img src="${defaultAvatar}" alt="默认" class="voice-avatar">
+                    <div class="voice-item-info">
+                        <span class="voice-name">默认语气</span>
+                        <span class="voice-role">通用风格</span>
+                    </div>
+                </div>
+                ${renderColumn('🔥 热门', data.popular, '暂无热门', null, null)}
+            </div>
+            <div class="voice-row">
+                ${renderColumn('⭐ 订阅', data.subscribed, '还没订阅', '#voice-mimicker/market', '去市场 →')}
+            </div>
+            <div class="voice-row">
+                ${renderColumn('📚 我的', data.mine, '还没创建', '#voice-mimicker/mine', '去创建 →')}
+            </div>
+        `;
     }
 
     /**
@@ -293,13 +338,13 @@ class ContentPage {
     }
 
     bindEvents(container) {
-        // 返回按钮 - 回退到选话题
+        // 返回按钮 - 仅导航，不清除数据
         container.querySelector('#back-btn').addEventListener('click', async () => {
             try {
-                await this.generator.updateTask('goBack', { toStep: 'trends' });
+                await this.generator.updateTask('navigateTo', { toStep: 'trends' });
                 this.generator.navigate('trends');
             } catch (error) {
-                console.error('回退失败:', error);
+                console.error('导航失败:', error);
             }
         });
 
@@ -400,6 +445,14 @@ class ContentPage {
             return;
         }
 
+        // 如果已有生成内容，显示确认弹窗
+        if (this.versionC) {
+            const confirmed = await this.generator.showConfirm(
+                '重新生成将清除当前内容及后续所有步骤的数据，确定继续吗？'
+            );
+            if (!confirmed) return;
+        }
+
         // 清除后续步骤的缓存数据
         try {
             await this.generator.updateTask('clearSubsequentData', { fromStep: 'content' });
@@ -436,10 +489,16 @@ class ContentPage {
                     this.report = data.content;
                     this.parseReport(data.content);
                 },
-                done: () => {
+                done: async () => {
                     this.isLoading = false;
                     this.updateContentArea();
                     this.updateButtons();
+                    // 自动保存生成的内容（不改变步骤）
+                    await this.autoSaveContent();
+                    // 如果使用了语气模板，增加使用次数
+                    if (this.selectedVoiceStyleId) {
+                        this.incrementVoiceStyleUsage(this.selectedVoiceStyleId);
+                    }
                 },
                 error: (data) => {
                     this.isLoading = false;
@@ -550,10 +609,45 @@ class ContentPage {
                 versionC: content,
                 score: this.score,
                 suggestions: this.suggestions,
-                rawReport: this.report
+                rawReport: this.report,
+                inputText: this.inputText
             });
         } catch (error) {
             console.error('保存内容失败:', error);
+        }
+    }
+
+    async autoSaveContent() {
+        // 自动保存内容数据（不改变步骤），用于生成后立即保存
+        if (!this.versionC) return;
+
+        try {
+            await this.generator.updateTask('updateContentData', {
+                versionC: this.versionC,
+                score: this.score,
+                suggestions: this.suggestions,
+                rawReport: this.report,
+                inputText: this.inputText
+            });
+            console.log('内容数据已自动保存');
+        } catch (error) {
+            console.error('自动保存内容数据失败:', error);
+        }
+    }
+
+    /**
+     * 增加语气模板使用次数
+     */
+    async incrementVoiceStyleUsage(voiceStyleId) {
+        try {
+            await fetch(`/api/tools/voice-prompts/${voiceStyleId}/use`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+        } catch (error) {
+            console.warn('增加语气模板使用次数失败:', error);
         }
     }
 
