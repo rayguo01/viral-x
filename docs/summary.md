@@ -1,8 +1,64 @@
 # Web Claude Code 项目概要
 
-## 版本: v2.9.16
+## 版本: v2.9.17
 
 ## 完成的工作
+
+### 3.37 语气模仿器工具 (v2.9.17)
+
+**功能**：新增"语气模仿器"工具，分析特定推主的写作风格，生成可用于模仿其语气的 Prompt。
+
+**实现**：
+
+1. **后端 API**（`src/routes/tools.js`）：
+   - `GET /api/tools/voice-prompts` - 获取用户保存的所有语气 Prompt
+   - `GET /api/tools/voice-prompts/:id` - 获取单个 Prompt 详情
+   - `DELETE /api/tools/voice-prompts/:id` - 删除 Prompt
+   - `POST /api/tools/voice-prompts/analyze` - 执行风格分析（SSE 流式响应）
+
+2. **数据库服务**（`src/services/voicePromptDb.js`）：
+   - `save()` - 保存生成的 Prompt
+   - `getByUserId()` - 获取用户的所有 Prompt
+   - `getById()` - 获取单个 Prompt
+   - `delete()` - 删除 Prompt
+
+3. **数据库表**（`src/config/database.js`）：
+   ```sql
+   CREATE TABLE IF NOT EXISTS voice_prompts (
+       id SERIAL PRIMARY KEY,
+       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+       username VARCHAR(100) NOT NULL,
+       display_name VARCHAR(200),
+       avatar_url VARCHAR(500),
+       tweet_count INTEGER DEFAULT 0,
+       total_chars INTEGER DEFAULT 0,
+       prompt_content TEXT NOT NULL,
+       sample_tweets JSONB,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )
+   ```
+
+4. **技能脚本**（`.claude/voice-mimicker/voice-mimicker.ts`）：
+   - 抓取用户推文（>150字，排除转发）
+   - 调用 Claude CLI 分析写作风格
+   - 生成 Style Persona 系统 Prompt
+
+5. **前端页面**：
+   - 首页"我的工具"区域（`public/js/generator/pages/home.js`）
+   - 语气模仿器页面（`public/js/generator/pages/voice-mimicker.js`）
+   - CSS 样式（`public/css/generator.css`）
+
+**UI 交互**：
+- 首页流程图下方显示"我的工具"区域
+- 点击"语气模仿器"进入工具页面
+- 输入 Twitter 用户名，点击分析
+- SSE 实时显示分析进度
+- 分析完成后显示在"已保存的语气"列表
+- 点击头像弹窗查看完整 Prompt，支持复制和删除
+
+**头像服务**：使用 unavatar.io 代理服务获取 Twitter 用户头像。
+
+---
 
 ### 3.36 domain-trends 查看原帖指向具体推文 (v2.9.16)
 

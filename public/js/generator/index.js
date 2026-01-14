@@ -45,7 +45,8 @@ class PostGenerator {
             'prompt': window.PromptPage,
             'image': window.ImagePage,
             'submit': window.SubmitPage,
-            'history': window.HistoryPage
+            'history': window.HistoryPage,
+            'voice-mimicker': window.VoiceMimickerPage
         };
     }
 
@@ -119,8 +120,8 @@ class PostGenerator {
 
     // 检查页面访问权限
     canAccessPage(pageName) {
-        // 首页和历史页面始终可访问
-        if (['home', 'history'].includes(pageName)) return true;
+        // 首页、历史页面和工具页面始终可访问
+        if (['home', 'history', 'voice-mimicker'].includes(pageName)) return true;
 
         // 其他页面需要有活跃任务
         if (!this.state.task) return false;

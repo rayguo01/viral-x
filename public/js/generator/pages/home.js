@@ -45,6 +45,21 @@ class HomePage {
                 </div>
 
                 ${this.state.task ? this.renderActiveTask() : ''}
+
+                <!-- 我的工具 -->
+                <div class="tools-section">
+                    <div class="tools-header">
+                        <span class="tools-icon">🛠️</span>
+                        <span class="tools-title">我的工具</span>
+                    </div>
+                    <div class="tools-grid">
+                        <div class="tool-card" data-tool="voice-mimicker">
+                            <div class="tool-icon">🎭</div>
+                            <div class="tool-name">语气模仿器</div>
+                            <div class="tool-desc">模仿特定推主的写作风格</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -116,6 +131,14 @@ class HomePage {
                 this.generator.abandonTask();
             });
         }
+
+        // 工具卡片点击
+        container.querySelectorAll('.tool-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const tool = card.dataset.tool;
+                this.generator.navigate(tool);
+            });
+        });
     }
 
     destroy() {

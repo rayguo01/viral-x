@@ -141,6 +141,30 @@ async function initDatabase() {
             )
         `);
 
+        // 创建语气模仿 Prompt 表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS voice_prompts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                username VARCHAR(100) NOT NULL,
+                display_name VARCHAR(200),
+                avatar_url VARCHAR(500),
+                tweet_count INTEGER DEFAULT 0,
+                total_chars INTEGER DEFAULT 0,
+                prompt_content TEXT NOT NULL,
+                sample_tweets JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 创建索引
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_voice_prompts_user ON voice_prompts(user_id)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_voice_prompts_username ON voice_prompts(username)
+        `);
+
         // 创建索引
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_post_tasks_user_status ON post_tasks(user_id, status)
