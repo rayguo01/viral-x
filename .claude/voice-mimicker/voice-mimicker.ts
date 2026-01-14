@@ -45,9 +45,16 @@ interface AnalysisResult {
 }
 
 /**
- * 抓取用户推文
+ * 延迟函数
  */
-async function fetchUserTweets(username: string, minChars: number = 150): Promise<Tweet[]> {
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 抓取用户推文（支持分页获取更多）
+ */
+async function fetchUserTweets(username: string, minChars: number = 100, targetCount: number = 15): Promise<Tweet[]> {
   const apiKey = process.env.TWITTER_API_IO_KEY;
 
   if (!apiKey) {
@@ -56,48 +63,87 @@ async function fetchUserTweets(username: string, minChars: number = 150): Promis
 
   console.log(`📡 正在抓取 @${username} 的推文...`);
 
-  const params = new URLSearchParams({
-    userName: username
-  });
+  const allTweets: Tweet[] = [];
+  let cursor = '';
+  let pageCount = 0;
+  const maxPages = 5; // 最多翻5页，避免过多 API 调用
 
-  const response = await fetch(`https://api.twitterapi.io/twitter/user/last_tweets?${params.toString()}`, {
-    method: 'GET',
-    headers: {
-      'X-API-Key': apiKey
+  while (allTweets.length < targetCount && pageCount < maxPages) {
+    const params = new URLSearchParams({
+      userName: username
+    });
+    if (cursor) {
+      params.append('cursor', cursor);
     }
-  });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API 错误: ${response.status} - ${errorText}`);
-  }
+    const response = await fetch(`https://api.twitterapi.io/twitter/user/last_tweets?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': apiKey
+      }
+    });
 
-  const data = await response.json() as { data?: { tweets?: RawTweet[] }; tweets?: RawTweet[] };
-  const rawTweets = data.data?.tweets || data.tweets || [];
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API 错误: ${response.status} - ${errorText}`);
+    }
 
-  console.log(`📥 获取到 ${rawTweets.length} 条原始推文`);
+    const data = await response.json() as {
+      data?: { tweets?: RawTweet[] };
+      tweets?: RawTweet[];
+      has_next_page?: boolean;
+      next_cursor?: string;
+    };
+    const rawTweets = data.data?.tweets || data.tweets || [];
 
-  // 过滤：只保留字数超过 minChars 的推文，排除纯转发
-  const filteredTweets = rawTweets
-    .filter((t: RawTweet) => {
+    if (rawTweets.length === 0) {
+      console.log(`📭 没有更多推文`);
+      break;
+    }
+
+    console.log(`📥 第 ${pageCount + 1} 页获取到 ${rawTweets.length} 条推文`);
+
+    // 过滤：只保留字数超过 minChars 的推文，排除纯转发
+    for (const t of rawTweets) {
       const text = t.text || '';
       // 排除纯转发（以 RT @ 开头）
-      if (text.startsWith('RT @')) return false;
+      if (text.startsWith('RT @')) continue;
       // 过滤字数
-      return text.length >= minChars;
-    })
-    .map((t: RawTweet) => ({
-      id: t.id,
-      text: t.text,
-      likes: t.likeCount || 0,
-      retweets: t.retweetCount || 0,
-      replies: t.replyCount || 0,
-      createdAt: t.createdAt || ''
-    }));
+      if (text.length < minChars) continue;
 
-  console.log(`✅ 过滤后剩余 ${filteredTweets.length} 条推文（>= ${minChars} 字）`);
+      allTweets.push({
+        id: t.id,
+        text: t.text,
+        likes: t.likeCount || 0,
+        retweets: t.retweetCount || 0,
+        replies: t.replyCount || 0,
+        createdAt: t.createdAt || ''
+      });
 
-  return filteredTweets;
+      if (allTweets.length >= targetCount) break;
+    }
+
+    pageCount++;
+
+    // 检查是否有下一页
+    if (!data.has_next_page || !data.next_cursor) {
+      console.log(`📭 没有更多页面`);
+      break;
+    }
+
+    cursor = data.next_cursor;
+
+    // 已经够了就不再翻页
+    if (allTweets.length >= targetCount) break;
+
+    // API 速率限制延迟
+    console.log(`⏳ 等待 API 速率限制...`);
+    await delay(5500);
+  }
+
+  console.log(`✅ 共获取 ${allTweets.length} 条推文（>= ${minChars} 字，共翻 ${pageCount} 页）`);
+
+  return allTweets;
 }
 
 /**
@@ -206,15 +252,15 @@ async function run(username: string): Promise<AnalysisResult> {
 
   console.log(`\n🎭 开始分析 @${cleanUsername} 的写作风格\n`);
 
-  // 1. 抓取推文
-  const tweets = await fetchUserTweets(cleanUsername, 150);
+  // 1. 抓取推文（最少100字，目标15条，最多翻5页）
+  const tweets = await fetchUserTweets(cleanUsername, 100, 15);
 
   if (tweets.length < 5) {
-    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 5 条 >= 150 字的推文，当前只有 ${tweets.length} 条）`);
+    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 5 条 >= 100 字的推文，当前只有 ${tweets.length} 条）`);
   }
 
-  // 取前 15 条用于分析
-  const selectedTweets = tweets.slice(0, 15);
+  // 使用所有符合条件的推文
+  const selectedTweets = tweets;
 
   // 2. 分析风格
   const promptContent = await analyzeStyle(cleanUsername, selectedTweets);
