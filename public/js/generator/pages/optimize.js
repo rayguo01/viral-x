@@ -162,7 +162,7 @@ class OptimizePage {
             </div>
 
             <div class="regenerate-section">
-                <button class="btn btn-secondary" id="reverify-btn">
+                <button class="btn btn-primary" id="reverify-btn">
                     🔄 重新验证
                 </button>
             </div>
