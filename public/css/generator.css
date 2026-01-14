@@ -2833,8 +2833,12 @@
     font-size: 16px;
     color: var(--text-muted);
     margin-left: 2px;
-    align-self: flex-end;
-    margin-bottom: 6px;
+}
+
+.score-unit {
+    font-size: 18px;
+    color: var(--text-muted);
+    margin-left: 2px;
 }
 
 .score-info {

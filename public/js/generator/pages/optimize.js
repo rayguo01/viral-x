@@ -181,7 +181,7 @@ class OptimizePage {
             <div class="total-score-card score-${scoreLevel}">
                 <div class="score-circle">
                     <span class="score-number">${score}</span>
-                    <span class="score-max">/100</span>
+                    <span class="score-unit">分</span>
                 </div>
                 <div class="score-info">
                     <div class="score-label">${scoreEmoji} ${scoreLabel}</div>
