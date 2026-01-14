@@ -2804,7 +2804,7 @@
 .score-circle {
     display: flex;
     flex-direction: row;
-    align-items: baseline;
+    align-items: center;
     justify-content: center;
     width: 100px;
     height: 100px;
@@ -2812,8 +2812,6 @@
     background: var(--bg-muted);
     border: 3px solid var(--accent);
     flex-shrink: 0;
-    padding-top: 32px;
-    box-sizing: border-box;
 }
 
 .total-score-card.score-high .score-circle {
@@ -2835,6 +2833,8 @@
     font-size: 16px;
     color: var(--text-muted);
     margin-left: 2px;
+    align-self: flex-end;
+    margin-bottom: 6px;
 }
 
 .score-info {
