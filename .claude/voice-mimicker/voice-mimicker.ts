@@ -94,7 +94,12 @@ async function fetchUserTweets(username: string, minChars: number = 100, targetC
       has_next_page?: boolean;
       next_cursor?: string;
     };
+
+    // 推文在 data.tweets 或顶层 tweets
     const rawTweets = data.data?.tweets || data.tweets || [];
+    // 分页信息在顶层
+    const hasNextPage = data.has_next_page;
+    const nextCursor = data.next_cursor;
 
     if (rawTweets.length === 0) {
       console.log(`📭 没有更多推文`);
@@ -125,13 +130,13 @@ async function fetchUserTweets(username: string, minChars: number = 100, targetC
 
     pageCount++;
 
-    // 检查是否有下一页
-    if (!data.has_next_page || !data.next_cursor) {
+    // 检查是否有下一页（分页信息在顶层）
+    if (!hasNextPage || !nextCursor) {
       console.log(`📭 没有更多页面`);
       break;
     }
 
-    cursor = data.next_cursor;
+    cursor = nextCursor;
 
     // 已经够了就不再翻页
     if (allTweets.length >= targetCount) break;
