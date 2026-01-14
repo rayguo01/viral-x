@@ -256,12 +256,29 @@ async function run(username: string): Promise<AnalysisResult> {
 
   console.log(`\n🎭 开始分析 @${cleanUsername} 的写作风格\n`);
 
-  // 1. 抓取推文（最少100字，目标15条，最多翻5页）
-  const tweets = await fetchUserTweets(cleanUsername, 100, 15);
+  // 1. 抓取推文 - 分层策略
+  let tweets = await fetchUserTweets(cleanUsername, 100, 15);
+  let minCharsUsed = 100;
 
+  // 如果长推文不够，降低到 50 字
   if (tweets.length < 5) {
-    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 5 条 >= 100 字的推文，当前只有 ${tweets.length} 条）`);
+    console.log(`⚠️ >= 100 字的推文不足，尝试 >= 50 字...`);
+    tweets = await fetchUserTweets(cleanUsername, 50, 15);
+    minCharsUsed = 50;
   }
+
+  // 如果还不够，使用所有非转发推文（不限字数）
+  if (tweets.length < 3) {
+    console.log(`⚠️ >= 50 字的推文不足，使用所有非转发推文...`);
+    tweets = await fetchUserTweets(cleanUsername, 0, 20);
+    minCharsUsed = 0;
+  }
+
+  if (tweets.length < 3) {
+    throw new Error(`@${cleanUsername} 的推文数量不足（需要至少 3 条推文，当前只有 ${tweets.length} 条）。该用户可能推文很少或账号受限。`);
+  }
+
+  console.log(`📊 最终使用 ${tweets.length} 条推文（>= ${minCharsUsed} 字）`);
 
   // 使用所有符合条件的推文
   const selectedTweets = tweets;
