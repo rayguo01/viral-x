@@ -59,11 +59,11 @@ class SubmitPage {
                 </div>
 
                 <div class="submit-actions" style="margin-top: 24px; text-align: center;">
-                    <button class="btn btn-secondary" id="copy-btn">
+                    <button class="btn btn-primary" id="copy-btn">
                         📋 复制内容
                     </button>
                     ${imagePath ? `
-                        <button class="btn btn-secondary" id="download-btn" style="margin-left: 12px;">
+                        <button class="btn btn-primary" id="download-btn" style="margin-left: 12px;">
                             ⬇️ 下载图片
                         </button>
                     ` : ''}
