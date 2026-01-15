@@ -42,6 +42,68 @@ interface AnalysisResult {
   totalChars: number;
   promptContent: string;
   sampleTweets: string[];
+  role: string | null;
+  coreTraits: string[] | null;
+}
+
+interface UserInfo {
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+}
+
+/**
+ * 获取用户信息（display name 和头像）
+ */
+async function fetchUserInfo(username: string): Promise<UserInfo> {
+  const apiKey = process.env.TWITTER_API_IO_KEY;
+
+  if (!apiKey) {
+    throw new Error('缺少环境变量 TWITTER_API_IO_KEY');
+  }
+
+  console.log(`👤 正在获取 @${username} 的用户信息...`);
+
+  const response = await fetch(`https://api.twitterapi.io/twitter/user/info?userName=${username}`, {
+    method: 'GET',
+    headers: {
+      'X-API-Key': apiKey
+    }
+  });
+
+  if (!response.ok) {
+    console.log(`⚠️ 获取用户信息失败，使用默认值`);
+    return {
+      username,
+      displayName: username,
+      avatarUrl: `https://unavatar.io/twitter/${username}`
+    };
+  }
+
+  const data = await response.json() as {
+    data?: {
+      name?: string;
+      userName?: string;
+      profileImageUrl?: string;
+    }
+  };
+
+  const user = data.data;
+  if (!user) {
+    return {
+      username,
+      displayName: username,
+      avatarUrl: `https://unavatar.io/twitter/${username}`
+    };
+  }
+
+  console.log(`✅ 用户信息: ${user.name} (@${user.userName})`);
+
+  return {
+    username: user.userName || username,
+    displayName: user.name || username,
+    avatarUrl: user.profileImageUrl?.replace('_normal', '_400x400') || `https://unavatar.io/twitter/${username}`
+  };
 }
 
 /**
@@ -49,6 +111,36 @@ interface AnalysisResult {
  */
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * 从 Markdown 中提取 Role 和 Core Traits
+ */
+function extractRoleAndTraits(markdown: string): { role: string | null; coreTraits: string[] | null } {
+  let role: string | null = null;
+  let coreTraits: string[] | null = null;
+
+  // 提取 Role（格式: # Role: XXX 或 # XXX）
+  const roleMatch = markdown.match(/^#\s*(?:Role:\s*)?(.+?)$/m);
+  if (roleMatch) {
+    role = roleMatch[1].trim();
+  }
+
+  // 提取 Core Traits（在 ## Core Traits 或类似标题下的列表项）
+  const traitsSection = markdown.match(/##\s*(?:\d+\.\s*)?Core\s*Traits[:\s]*\n([\s\S]*?)(?=\n##|\n#|$)/i);
+  if (traitsSection) {
+    const traitsText = traitsSection[1];
+    // 匹配列表项（以 - 或 * 或数字开头）
+    const traitMatches = traitsText.match(/^[\s]*[-*•]\s*\*?\*?(.+?)(?:\*?\*?)$/gm);
+    if (traitMatches) {
+      coreTraits = traitMatches.map(t => {
+        // 清理格式：移除前导符号、粗体标记等
+        return t.replace(/^[\s]*[-*•]\s*/, '').replace(/\*\*/g, '').trim();
+      }).filter(t => t.length > 0);
+    }
+  }
+
+  return { role, coreTraits };
 }
 
 /**
@@ -149,7 +241,7 @@ async function fetchUserTweets(username: string, minChars: number = 100, targetC
 }
 
 /**
- * 调用 Claude CLI 分析风格
+ * 调用 AI 分析风格
  */
 function callClaudeCLI(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -173,7 +265,7 @@ function callClaudeCLI(prompt: string): Promise<string> {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr}`));
       }
     });
 
@@ -235,7 +327,7 @@ Start directly with "# Role: [Name/Archetype based on @${username}]".
 - The prompt should help an AI write tweets that could pass as this person's actual posts
 - Pay special attention to line breaks, punctuation, and informal language patterns`;
 
-  console.log('🤖 正在使用 Claude CLI 分析风格...');
+  console.log('🤖 正在使用 AI 分析风格...');
   const result = await callClaudeCLI(prompt);
 
   return result;
@@ -281,24 +373,33 @@ async function run(username: string): Promise<AnalysisResult> {
   // 使用所有符合条件的推文
   const selectedTweets = tweets;
 
-  // 2. 分析风格
+  // 2. 获取用户信息
+  const userInfo = await fetchUserInfo(cleanUsername);
+
+  // 3. 分析风格
   const promptContent = await analyzeStyle(cleanUsername, selectedTweets);
 
-  // 3. 保存结果
+  // 4. 保存结果
   const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
   const outputPath = path.join(OUTPUT_DIR, `${cleanUsername}_${dateStr}.md`);
   fs.writeFileSync(outputPath, promptContent);
   console.log(`\n✅ Prompt 已保存: ${outputPath}`);
 
-  // 4. 构建返回结果
+  // 5. 提取 Role 和 Core Traits
+  const { role, coreTraits } = extractRoleAndTraits(promptContent);
+  console.log(`📋 提取信息: Role="${role}", Traits=${coreTraits?.length || 0} 条`);
+
+  // 6. 构建返回结果
   const result: AnalysisResult = {
-    username: cleanUsername,
-    displayName: cleanUsername, // API 不返回 display name，暂用 username
-    avatarUrl: `https://unavatar.io/twitter/${cleanUsername}`,
+    username: userInfo.username,
+    displayName: userInfo.displayName,
+    avatarUrl: userInfo.avatarUrl,
     tweetCount: selectedTweets.length,
     totalChars: selectedTweets.reduce((sum, t) => sum + t.text.length, 0),
     promptContent,
-    sampleTweets: selectedTweets.slice(0, 3).map(t => t.text)
+    sampleTweets: selectedTweets.slice(0, 3).map(t => t.text),
+    role,
+    coreTraits
   };
 
   // 输出 JSON 供 API 读取

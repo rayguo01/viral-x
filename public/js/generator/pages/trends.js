@@ -74,11 +74,6 @@ class TrendsPage {
                             ← 返回首页
                         </button>
                     </div>
-                    <div class="action-right">
-                        <button class="btn btn-primary" id="next-btn" disabled>
-                            下一步: 生成内容 →
-                        </button>
-                    </div>
                 </div>
             </div>
         `;
@@ -111,19 +106,6 @@ class TrendsPage {
         // 返回按钮
         container.querySelector('#back-btn').addEventListener('click', () => {
             this.generator.navigate('home');
-        });
-
-        // 下一步按钮
-        container.querySelector('#next-btn').addEventListener('click', async () => {
-            if (!this.selectedTopic) return;
-
-            try {
-                // 保存选择的话题并进入下一步
-                await this.generator.updateTask('selectTopic', this.selectedTopic);
-                this.generator.navigate('content');
-            } catch (error) {
-                console.error('保存话题失败:', error);
-            }
         });
     }
 
@@ -480,14 +462,6 @@ class TrendsPage {
                 `}
             </div>
 
-            <div class="report-toggle">
-                <button class="btn btn-ghost" id="toggle-report-btn">
-                    📄 查看原始报告
-                </button>
-            </div>
-            <div class="report-content" style="display: none;">
-                <pre style="white-space: pre-wrap; font-size: 12px;">${this.escapeHtml(typeof report === 'string' ? report : JSON.stringify(report, null, 2))}</pre>
-            </div>
         `;
 
         this.bindContentEvents(content, topics);
@@ -546,31 +520,12 @@ class TrendsPage {
                 `}
             </div>
 
-            <div class="report-toggle">
-                <button class="btn btn-ghost" id="toggle-report-btn">
-                    📄 ${topics.length > 0 ? '查看原始报告' : '展开原始报告'}
-                </button>
-            </div>
-            <div class="report-content" style="display: ${topics.length > 0 ? 'none' : 'block'};">
-                <pre style="white-space: pre-wrap; font-size: 12px;">${this.escapeHtml(typeof report === 'string' ? report : JSON.stringify(report, null, 2))}</pre>
-            </div>
         `;
 
         this.bindContentEvents(content, topics);
     }
 
     bindContentEvents(content, topics) {
-        // 绑定报告折叠事件
-        const toggleBtn = content.querySelector('#toggle-report-btn');
-        const reportContent = content.querySelector('.report-content');
-        if (toggleBtn && reportContent) {
-            toggleBtn.addEventListener('click', () => {
-                const isVisible = reportContent.style.display !== 'none';
-                reportContent.style.display = isVisible ? 'none' : 'block';
-                toggleBtn.textContent = isVisible ? '📄 查看原始报告' : '📄 收起报告';
-            });
-        }
-
         // 绑定话题选择事件
         content.querySelectorAll('.topic-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -588,11 +543,51 @@ class TrendsPage {
                 content.querySelectorAll('.topic-item').forEach(i => {
                     i.classList.toggle('selected', parseInt(i.dataset.index) === this.selectedTopic?.index);
                 });
+            });
+        });
 
-                // 更新下一步按钮状态
-                const nextBtn = document.querySelector('#next-btn');
-                if (nextBtn) {
-                    nextBtn.disabled = !this.selectedTopic;
+        // 绑定"下一步：生成内容"按钮事件
+        content.querySelectorAll('.topic-next-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const index = parseInt(btn.dataset.index);
+                const topic = topics[index];
+
+                // 设置选中的话题
+                const newTopic = { ...topic, index, source: this.activeTab };
+
+                // 检查是否已有选题且选题不同，且已有后续数据
+                const existingTopic = this.state.task?.trends_data?.selectedTopic;
+                const hasSubsequentData = this.state.task?.content_data?.versionC;
+
+                if (existingTopic && hasSubsequentData) {
+                    // 检查是否选择了不同的话题
+                    const isSameTopic = existingTopic.title === newTopic.title &&
+                                       existingTopic.source === newTopic.source;
+
+                    if (!isSameTopic) {
+                        const confirmed = await this.generator.showConfirm(
+                            '选择新话题将清除已生成的内容及后续所有数据，确定继续吗？'
+                        );
+                        if (!confirmed) return;
+
+                        // 清除后续数据
+                        try {
+                            await this.generator.updateTask('clearSubsequentData', { fromStep: 'trends' });
+                        } catch (err) {
+                            console.warn('清除后续数据失败:', err);
+                        }
+                    }
+                }
+
+                this.selectedTopic = newTopic;
+
+                try {
+                    // 保存选择的话题并进入下一步
+                    await this.generator.updateTask('selectTopic', this.selectedTopic);
+                    this.generator.navigate('content');
+                } catch (error) {
+                    console.error('保存话题失败:', error);
                 }
             });
         });
@@ -890,6 +885,11 @@ class TrendsPage {
                         <div class="field-value direction-list">${topic.direction}</div>
                     </div>
                 ` : ''}
+                <div class="topic-action">
+                    <button class="btn btn-primary btn-sm topic-next-btn" data-index="${index}" onclick="event.stopPropagation();">
+                        下一步：生成内容 →
+                    </button>
+                </div>
             </div>
         `;
     }

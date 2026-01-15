@@ -85,23 +85,60 @@ class GeneratorState {
         return this.workflowSteps.findIndex(s => s.id === this.task.current_step);
     }
 
-    // 获取步骤状态
+    // 检查步骤是否有数据
+    stepHasData(stepId) {
+        if (!this.task) return false;
+
+        switch (stepId) {
+            case 'trends':
+                return !!(this.task.trends_data?.selectedTopic);
+            case 'content':
+                return !!(this.task.content_data?.versionC);
+            case 'optimize':
+                return !!(this.task.optimize_data?.optimizedVersion);
+            case 'prompt':
+                return !!(this.task.prompt_data?.prompt);
+            case 'image':
+                return !!(this.task.image_data?.imagePath);
+            case 'submit':
+                return this.task.status === 'completed';
+            default:
+                return false;
+        }
+    }
+
+    // 获取步骤状态 - 基于数据存在性判断已完成状态
     getStepStatus(stepId) {
-        if (!this.task) return 'pending';
+        // 没有任务时，第一个步骤显示为当前状态
+        if (!this.task) return stepId === 'trends' ? 'current' : 'pending';
+
         const currentIndex = this.getCurrentStepIndex();
         const stepIndex = this.workflowSteps.findIndex(s => s.id === stepId);
 
-        if (stepIndex < currentIndex) return 'completed';
+        // 当前步骤
         if (stepIndex === currentIndex) return 'current';
+
+        // 检查步骤是否有数据
+        if (this.stepHasData(stepId)) return 'completed';
+
+        // 在当前步骤之前但没有数据
+        if (stepIndex < currentIndex) return 'accessible';
+
         return 'pending';
     }
 
-    // 检查步骤是否可访问
+    // 检查步骤是否可访问 - 有数据的步骤都可访问
     isStepAccessible(stepId) {
         if (!this.task) return stepId === 'trends';
+
         const currentIndex = this.getCurrentStepIndex();
         const stepIndex = this.workflowSteps.findIndex(s => s.id === stepId);
-        return stepIndex <= currentIndex;
+
+        // 当前步骤及之前的步骤都可访问
+        if (stepIndex <= currentIndex) return true;
+
+        // 有数据的步骤也可访问
+        return this.stepHasData(stepId);
     }
 
     // 持久化到 localStorage

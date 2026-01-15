@@ -9,57 +9,75 @@ class HomePage {
 
     render(container) {
         container.innerHTML = `
-            <div class="home-page">
-                <div class="page-title">
-                    <span>🚀</span> 开始创作
+            <div class="space-y-8">
+                <!-- 开始创作区块 -->
+                <div class="mb-10">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <span class="text-2xl">🚀</span>
+                        <h3 class="font-display text-3xl" style="color: #0f172a !important;">开始创作</h3>
+                    </div>
+                    <p class="max-w-xl text-lg font-light leading-relaxed" style="color: #64748b;">
+                        选择一个热点数据源，开始你的内容创作之旅。AI 分析海量数据，助你产出高互动内容。
+                    </p>
                 </div>
 
-                <p class="home-desc">
-                    选择一个热点数据源，开始你的内容创作之旅
-                </p>
-
-                <div class="source-selector">
-                    <div class="source-card" data-source="x-trends">
-                        <div class="source-icon">𝕏</div>
-                        <div class="source-name">X(Twitter) 趋势</div>
-                        <div class="source-desc">
-                            获取 X 平台 24 小时热门话题趋势
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- X 趋势卡片 -->
+                    <div class="source-card group relative overflow-hidden rounded-2xl bg-white/80 p-6 border border-slate-200/60 hover:border-slate-400 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer" data-source="x-trends">
+                        <div class="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="material-icons-outlined text-slate-400">arrow_forward</span>
                         </div>
+                        <div class="mb-6 w-12 h-12 flex items-center justify-center rounded-xl bg-slate-100 text-2xl font-serif" style="color: #0f172a;">𝕏</div>
+                        <h4 class="font-display text-xl mb-3" style="color: #0f172a !important;">X (Twitter) 趋势</h4>
+                        <p class="text-sm leading-relaxed" style="color: #64748b;">
+                            获取 X 平台 24 小时热门话题，分析病毒式传播模式，快速创作引爆帖子。
+                        </p>
                     </div>
 
-                    <div class="source-card" data-source="tophub-trends">
-                        <div class="source-icon">🔥</div>
-                        <div class="source-name">TopHub 热榜</div>
-                        <div class="source-desc">
-                            聚合各大平台热门内容榜单
+                    <!-- TopHub 热榜卡片 -->
+                    <div class="source-card group relative overflow-hidden rounded-2xl bg-white/80 p-6 border border-slate-200/60 hover:border-orange-300 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer" data-source="tophub-trends">
+                        <div class="absolute inset-0 bg-gradient-to-br from-orange-50/0 to-orange-100/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="material-icons-outlined text-orange-400">arrow_forward</span>
                         </div>
+                        <div class="relative z-10 mb-6 w-12 h-12 flex items-center justify-center rounded-xl bg-orange-50 text-orange-500 text-2xl">🔥</div>
+                        <h4 class="relative z-10 font-display text-xl mb-3" style="color: #0f172a !important;">TopHub 热榜</h4>
+                        <p class="relative z-10 text-sm leading-relaxed" style="color: #64748b;">
+                            聚合各大平台热门内容榜单，跨平台灵感碰撞，捕捉下一个爆款话题。
+                        </p>
                     </div>
 
-                    <div class="source-card" data-source="domain-trends">
-                        <div class="source-icon">🎯</div>
-                        <div class="source-name">X领域趋势</div>
-                        <div class="source-desc">
-                            追踪 Web3、AI 等特定领域的 X 热点
+                    <!-- 领域趋势卡片 -->
+                    <div class="source-card group relative overflow-hidden rounded-2xl bg-white/80 p-6 border border-slate-200/60 hover:border-purple-300 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer" data-source="domain-trends">
+                        <div class="absolute inset-0 bg-gradient-to-br from-purple-50/0 to-purple-100/30 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <div class="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span class="material-icons-outlined text-purple-400">arrow_forward</span>
+                        </div>
+                        <div class="relative z-10 mb-6 w-12 h-12 flex items-center justify-center rounded-xl bg-purple-50 text-purple-500 text-2xl">🎯</div>
+                        <h4 class="relative z-10 font-display text-xl mb-3" style="color: #0f172a !important;">领域聚焦</h4>
+                        <p class="relative z-10 text-sm leading-relaxed" style="color: #64748b;">
+                            深入 Web3、AI、金融等垂直领域，为专业受众定制精准洞察。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- 底部统计 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-slate-200">
+                    <div class="p-4">
+                        <p class="text-xs uppercase tracking-widest mb-2" style="color: #94a3b8;">生成速度</p>
+                        <p class="font-display text-5xl font-light" style="color: #0f172a;">&lt; 2s</p>
+                    </div>
+                    <div class="p-4 md:border-l border-slate-200">
+                        <p class="text-xs uppercase tracking-widest mb-2" style="color: #94a3b8;">支持平台</p>
+                        <div class="flex items-center space-x-6" style="color: #94a3b8;">
+                            <span class="hover:text-slate-600 transition-colors cursor-default">Twitter/X</span>
+                            <span class="hover:text-slate-600 transition-colors cursor-default">LinkedIn</span>
+                            <span class="hover:text-slate-600 transition-colors cursor-default">Threads</span>
                         </div>
                     </div>
                 </div>
 
                 ${this.state.task ? this.renderActiveTask() : ''}
-
-                <!-- 我的工具 -->
-                <div class="tools-section">
-                    <div class="tools-header">
-                        <span class="tools-icon">🛠️</span>
-                        <span class="tools-title">我的工具</span>
-                    </div>
-                    <div class="tools-grid">
-                        <div class="tool-card" data-tool="voice-mimicker">
-                            <div class="tool-icon">🎭</div>
-                            <div class="tool-name">语气模仿器</div>
-                            <div class="tool-desc">模仿特定推主的写作风格</div>
-                        </div>
-                    </div>
-                </div>
             </div>
         `;
 
@@ -71,14 +89,17 @@ class HomePage {
         const stepName = this.state.workflowSteps.find(s => s.id === task.current_step)?.name || task.current_step;
 
         return `
-            <div class="active-task-card">
-                <div class="active-task-header">
-                    <span>📝 有未完成的任务</span>
-                    <span class="active-task-step">当前: ${stepName}</span>
+            <div class="glass-panel bg-amber-50 rounded-2xl p-6 border border-amber-200 mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="material-icons-outlined text-amber-600">pending_actions</span>
+                        <span class="text-amber-700 font-medium">有未完成的任务</span>
+                    </div>
+                    <span class="text-sm text-slate-500">当前: ${stepName}</span>
                 </div>
-                <div class="active-task-actions">
-                    <button class="btn btn-primary" id="continue-task-btn">继续任务</button>
-                    <button class="btn btn-danger" id="abandon-task-btn">放弃任务</button>
+                <div class="flex space-x-3">
+                    <button class="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-700 transition-all duration-200" id="continue-task-btn">继续任务</button>
+                    <button class="px-6 py-2.5 bg-white border border-slate-200 text-red-600 rounded-xl hover:bg-red-50 transition-all duration-200" id="abandon-task-btn">放弃</button>
                 </div>
             </div>
         `;
@@ -131,14 +152,6 @@ class HomePage {
                 this.generator.abandonTask();
             });
         }
-
-        // 工具卡片点击
-        container.querySelectorAll('.tool-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const tool = card.dataset.tool;
-                this.generator.navigate(tool);
-            });
-        });
     }
 
     destroy() {

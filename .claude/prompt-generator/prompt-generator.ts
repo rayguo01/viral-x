@@ -1,7 +1,7 @@
 /**
  * Prompt Generator - 根据帖子内容生成 AI 图像生成 prompt
  *
- * 使用 Claude CLI 生成适合社交媒体配图的英文 prompt
+ * 使用 AI 生成适合社交媒体配图的英文 prompt
  */
 
 import * as fs from 'fs';
@@ -112,8 +112,8 @@ async function main() {
     console.log('');
 
     try {
-        console.log('🔄 正在调用 Claude CLI 生成 prompt...');
-        // 使用 Claude CLI 生成 prompt
+        console.log('🔄 正在调用 AI 生成 prompt...');
+        // 使用 AI 生成 prompt
         const userPrompt = `${SYSTEM_PROMPT}
 
 ====================
@@ -152,7 +152,7 @@ ${content}
 
             // 超时处理 (90秒)
             const timeout = setTimeout(() => {
-                console.log('\n⚠️  Claude 响应超时 (90秒)，尝试终止...');
+                console.log('\n⚠️  AI 响应超时 (90秒)，尝试终止...');
                 child.kill('SIGTERM');
             }, 90000);
 
@@ -160,11 +160,11 @@ ${content}
                 clearTimeout(timeout);
                 console.log(''); // 换行
                 if (code === 0) {
-                    console.log('✅ Claude CLI 响应成功');
+                    console.log('✅ AI 响应成功');
                     resolve(stdout.trim());
                 } else {
-                    console.log(`❌ Claude CLI 退出码: ${code}`);
-                    reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr}`));
+                    console.log(`❌ AI 退出码: ${code}`);
+                    reject(new Error(`AI 退出码: ${code}, stderr: ${stderr}`));
                 }
             });
 
@@ -177,7 +177,7 @@ ${content}
             // 通过 stdin 传递 prompt（与 content-writer 一致）
             child.stdin.write(userPrompt);
             child.stdin.end();
-            console.log('✅ 已发送 prompt，等待 Claude 响应...');
+            console.log('✅ 已发送 prompt，等待 AI 响应...');
         });
 
         console.log('📋 正在解析 JSON 输出...');

@@ -172,11 +172,11 @@ async function handleMessage(ws, message) {
         },
         // 错误回调
         (err) => {
-            console.error('Claude 处理错误:', err);
+            console.error('AI 处理错误:', err);
             if (ws.readyState === ws.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'error',
-                    message: 'Claude 处理失败: ' + err.message
+                    message: 'AI 处理失败: ' + err.message
                 }));
             }
         }

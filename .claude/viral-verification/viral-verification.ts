@@ -98,7 +98,7 @@ ${JSON_SCHEMA}
 `;
 
 /**
- * Call Claude CLI to verify content
+ * Call AI to verify content
  */
 function callClaudeCLI(userInput: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -136,7 +136,7 @@ ${userInput}
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr}`));
       }
     });
 
@@ -207,8 +207,8 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
     console.log('📝 正在分析内容...');
     console.log(`内容预览: ${input.substring(0, 100)}${input.length > 100 ? '...' : ''}`);
 
-    // 调用 Claude CLI 验证内容
-    console.log('🤖 正在使用 Claude 进行爆款要素优化...');
+    // 调用 AI 验证内容
+    console.log('🤖 正在使用 AI 进行爆款要素优化...');
     const rawOutput = await callClaudeCLI(input);
 
     console.log('📋 正在解析 JSON 输出...');

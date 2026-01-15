@@ -153,7 +153,7 @@ export async function runWithRotation(presetId: string = 'ai'): Promise<{
     const trendItems = aggregateTweets(tweets);
     console.log(`📊 聚合后话题数: ${trendItems.length}`);
 
-    // 6. Claude 分析 - 使用简化的配置对象
+    // 6. AI 分析 - 使用简化的配置对象
     const analysisConfig: DomainConfig = {
       id: groupConfig.id,
       name: `${groupConfig.name} - ${group.name}`,
@@ -382,7 +382,7 @@ export function aggregateTweets(tweets: DomainTweet[]): DomainTrendItem[] {
 }
 
 /**
- * 调用 Claude CLI 分析
+ * 调用 AI 分析
  */
 function callClaudeCLI(prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -406,7 +406,7 @@ function callClaudeCLI(prompt: string): Promise<string> {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr}`));
       }
     });
 
@@ -501,7 +501,7 @@ ${JSON_SCHEMA}
 7. 不要在 <result> 标签内添加 markdown 代码块
 8. 所有标点符号必须使用英文半角字符`;
 
-  console.log('🤖 正在使用 Claude CLI 分析趋势...');
+  console.log('🤖 正在使用 AI 分析趋势...');
   return await callClaudeCLI(prompt);
 }
 
@@ -558,7 +558,7 @@ export async function run(presetId: string = 'web3'): Promise<{
     const trendItems = aggregateTweets(tweets);
     console.log(`📊 聚合后话题数: ${trendItems.length}`);
 
-    // 5. Claude 分析
+    // 5. AI 分析
     const rawOutput = await analyzeTrends(trendItems, config);
 
     console.log('📋 正在解析 JSON 输出...');
@@ -655,7 +655,7 @@ export async function analyzeOnly(
   const trendItems = aggregateTweets(tweets);
   console.log(`📊 聚合后话题数: ${trendItems.length}`);
 
-  // 2. Claude 分析 - 使用简化的配置对象
+  // 2. AI 分析 - 使用简化的配置对象
   const analysisConfig: DomainConfig = {
     id: groupConfig.id,
     name: `${groupConfig.name} - ${groupName}`,

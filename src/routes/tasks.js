@@ -217,6 +217,17 @@ router.put('/:id', authenticate, async (req, res) => {
                 updateParams = [JSON.stringify(data), taskId];
                 break;
 
+            case 'updateContentData':
+                // 仅更新内容数据，不改变步骤（用于生成后立即保存）
+                const currentContentData = task.content_data || {};
+                const mergedContentData = { ...currentContentData, ...data };
+                updateQuery = `UPDATE post_tasks SET
+                    content_data = $1,
+                    updated_at = CURRENT_TIMESTAMP
+                    WHERE id = $2 RETURNING *`;
+                updateParams = [JSON.stringify(mergedContentData), taskId];
+                break;
+
             case 'saveOptimize':
                 // 保存优化的内容，进入 prompt 步骤
                 updateQuery = `UPDATE post_tasks SET
@@ -356,22 +367,44 @@ router.put('/:id', authenticate, async (req, res) => {
                     return res.status(400).json({ error: '只能回退到之前的步骤' });
                 }
 
-                // 清除目标步骤及之后的数据
+                // 清除目标步骤之后的数据（保留目标步骤本身的数据）
                 const clearFields = [];
-                for (let i = targetIndex; i < WORKFLOW_STEPS.length - 1; i++) {
+                for (let i = targetIndex + 1; i < WORKFLOW_STEPS.length - 1; i++) {
                     const stepName = WORKFLOW_STEPS[i];
                     if (stepName !== 'trends') {
                         clearFields.push(`${stepName}_data = NULL`);
                     }
                 }
 
+                if (clearFields.length > 0) {
+                    updateQuery = `UPDATE post_tasks SET
+                        ${clearFields.join(', ')},
+                        current_step = $1,
+                        updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $2 RETURNING *`;
+                } else {
+                    updateQuery = `UPDATE post_tasks SET
+                        current_step = $1,
+                        updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $2 RETURNING *`;
+                }
+                updateParams = [targetStep, taskId];
+                break;
+
+            case 'navigateTo': {
+                // 纯导航，不清除任何数据（用于自由浏览）
+                const navTargetStep = data?.toStep;
+                if (!WORKFLOW_STEPS.includes(navTargetStep)) {
+                    return res.status(400).json({ error: '无效的目标步骤' });
+                }
+
                 updateQuery = `UPDATE post_tasks SET
-                    ${clearFields.join(', ')},
                     current_step = $1,
                     updated_at = CURRENT_TIMESTAMP
                     WHERE id = $2 RETURNING *`;
-                updateParams = [targetStep, taskId];
+                updateParams = [navTargetStep, taskId];
                 break;
+            }
 
             case 'complete':
                 // 完成任务
@@ -556,11 +589,12 @@ router.post('/:id/execute-step', authenticate, async (req, res) => {
                 if (input?.voiceStyleId) {
                     try {
                         const voicePromptDb = require('../services/voicePromptDb');
-                        const voicePrompt = await voicePromptDb.getById(input.voiceStyleId, req.user.userId);
+                        // 使用 getForGeneration 获取完整 prompt（包括公共的）
+                        const voicePrompt = await voicePromptDb.getForGeneration(input.voiceStyleId, req.user.userId);
                         if (voicePrompt && voicePrompt.prompt_content) {
                             // 将语气 prompt 附加到用户输入
                             userInput = `${userInput}\n\n===写作风格指南===\n请严格按照以下语气风格进行创作：\n\n${voicePrompt.prompt_content}`;
-                            console.log(`[content] 使用语气风格: @${voicePrompt.username}`);
+                            console.log(`[content] 使用语气风格: @${voicePrompt.username}${voicePrompt.is_public ? ' (公共)' : ''}`);
                         }
                     } catch (e) {
                         console.warn('[content] 获取语气风格失败:', e.message);

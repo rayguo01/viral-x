@@ -103,7 +103,7 @@ ${JSON_SCHEMA}
 `;
 
 /**
- * Call Claude CLI to search images
+ * Call AI to search images
  */
 function callClaudeCLI(userInput: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -132,7 +132,7 @@ ${userInput}
 
     const timeout = setTimeout(() => {
       killed = true;
-      console.error(`⏰ Claude CLI 执行超时（${TIMEOUT / 1000}秒），强制终止`);
+      console.error(`⏰ AI 执行超时（${TIMEOUT / 1000}秒），强制终止`);
       child.kill('SIGTERM');
     }, TIMEOUT);
 
@@ -155,7 +155,7 @@ ${userInput}
       clearTimeout(timeout);
 
       if (killed) {
-        reject(new Error(`Claude CLI 执行超时（超过 ${TIMEOUT / 1000} 秒）`));
+        reject(new Error(`AI 执行超时（超过 ${TIMEOUT / 1000} 秒）`));
         return;
       }
 
@@ -163,15 +163,15 @@ ${userInput}
         console.log(`✅ 图片搜索完成，输出长度: ${stdout.length}`);
         resolve(stdout.trim());
       } else {
-        console.error(`❌ Claude CLI 错误，退出码: ${code}`);
+        console.error(`❌ AI 错误，退出码: ${code}`);
         console.error(`stderr: ${stderr.substring(0, 500)}`);
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr.substring(0, 200)}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr.substring(0, 200)}`));
       }
     });
 
     child.on('error', (error) => {
       clearTimeout(timeout);
-      console.error(`❌ Claude CLI spawn 错误:`, error);
+      console.error(`❌ AI spawn 错误:`, error);
       reject(error);
     });
 
@@ -239,7 +239,7 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
     console.log('🔍 正在搜索图片...');
     console.log(`搜索关键词: ${input.substring(0, 100)}${input.length > 100 ? '...' : ''}`);
 
-    console.log('🤖 正在使用 Claude 搜索网络图片...');
+    console.log('🤖 正在使用 AI 搜索网络图片...');
     const rawOutput = await callClaudeCLI(input);
 
     console.log('📋 正在解析搜索结果...');

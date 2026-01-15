@@ -153,7 +153,84 @@ async function initDatabase() {
                 total_chars INTEGER DEFAULT 0,
                 prompt_content TEXT NOT NULL,
                 sample_tweets JSONB,
+                is_public BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 添加 is_public 字段（如果不存在）
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'voice_prompts' AND column_name = 'is_public'
+                ) THEN
+                    ALTER TABLE voice_prompts ADD COLUMN is_public BOOLEAN DEFAULT FALSE;
+                END IF;
+            END $$;
+        `);
+
+        // 添加 usage_count 字段（如果不存在）
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'voice_prompts' AND column_name = 'usage_count'
+                ) THEN
+                    ALTER TABLE voice_prompts ADD COLUMN usage_count INTEGER DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
+        // 添加 role 字段（市场展示用）
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'voice_prompts' AND column_name = 'role'
+                ) THEN
+                    ALTER TABLE voice_prompts ADD COLUMN role VARCHAR(200);
+                END IF;
+            END $$;
+        `);
+
+        // 添加 core_traits 字段（市场展示用，JSON 格式）
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'voice_prompts' AND column_name = 'core_traits'
+                ) THEN
+                    ALTER TABLE voice_prompts ADD COLUMN core_traits TEXT;
+                END IF;
+            END $$;
+        `);
+
+        // 添加 subscriber_count 字段（订阅者数量）
+        await client.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'voice_prompts' AND column_name = 'subscriber_count'
+                ) THEN
+                    ALTER TABLE voice_prompts ADD COLUMN subscriber_count INTEGER DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
+        // 创建语气模仿订阅表
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS voice_prompt_subscriptions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                prompt_id INTEGER REFERENCES voice_prompts(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, prompt_id)
             )
         `);
 
@@ -163,6 +240,15 @@ async function initDatabase() {
         `);
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_voice_prompts_username ON voice_prompts(username)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_voice_prompts_public ON voice_prompts(is_public)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_voice_subscriptions_user ON voice_prompt_subscriptions(user_id)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_voice_subscriptions_prompt ON voice_prompt_subscriptions(prompt_id)
         `);
 
         // 创建索引

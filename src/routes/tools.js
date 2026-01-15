@@ -10,15 +10,98 @@ const voicePromptDb = require('../services/voicePromptDb');
 const router = express.Router();
 
 /**
- * 获取用户保存的所有语气 Prompt
+ * 获取市场列表
+ */
+router.get('/voice-prompts/market', authenticate, async (req, res) => {
+    try {
+        const { sort = 'usage', page = 1, limit = 20 } = req.query;
+        const result = await voicePromptDb.getMarket(
+            req.user.userId,
+            sort,
+            parseInt(page),
+            parseInt(limit)
+        );
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('获取市场列表失败:', error);
+        res.status(500).json({ error: '获取市场列表失败' });
+    }
+});
+
+/**
+ * 获取我创建的语气 Prompt 列表
+ */
+router.get('/voice-prompts/mine', authenticate, async (req, res) => {
+    try {
+        const prompts = await voicePromptDb.getMine(req.user.userId);
+        res.json({ success: true, prompts });
+    } catch (error) {
+        console.error('获取我的语气 Prompt 列表失败:', error);
+        res.status(500).json({ error: '获取列表失败' });
+    }
+});
+
+/**
+ * 获取我订阅的语气 Prompt 列表
+ */
+router.get('/voice-prompts/subscribed', authenticate, async (req, res) => {
+    try {
+        const prompts = await voicePromptDb.getSubscribed(req.user.userId);
+        res.json({ success: true, prompts });
+    } catch (error) {
+        console.error('获取订阅列表失败:', error);
+        res.status(500).json({ error: '获取订阅列表失败' });
+    }
+});
+
+/**
+ * 获取内容生成时可用的语气列表（三列数据）
+ */
+router.get('/voice-prompts/available', authenticate, async (req, res) => {
+    try {
+        const result = await voicePromptDb.getAvailable(req.user.userId);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('获取可用语气列表失败:', error);
+        res.status(500).json({ error: '获取列表失败' });
+    }
+});
+
+/**
+ * 获取用户保存的所有语气 Prompt（兼容旧接口）
  */
 router.get('/voice-prompts', authenticate, async (req, res) => {
     try {
-        const prompts = await voicePromptDb.getByUserId(req.user.userId);
+        const prompts = await voicePromptDb.getMine(req.user.userId);
+        console.log(`[voice-prompts] userId=${req.user.userId}, 返回 ${prompts.length} 条记录`);
         res.json({ success: true, prompts });
     } catch (error) {
         console.error('获取语气 Prompt 列表失败:', error);
         res.status(500).json({ error: '获取列表失败' });
+    }
+});
+
+/**
+ * 列出所有语气 Prompt（调试用，仅管理员）
+ * 注意：此路由必须在 /:id 之前定义
+ */
+router.get('/voice-prompts/admin/list-all', authenticate, async (req, res) => {
+    try {
+        const adminUsers = ['admin', 'rayguo'];
+        if (!adminUsers.includes((req.user.username || '').toLowerCase())) {
+            return res.status(403).json({ error: '无权限' });
+        }
+
+        const { pool } = require('../config/database');
+        const result = await pool.query(
+            `SELECT id, user_id, username, display_name, is_public, usage_count, created_at
+             FROM voice_prompts
+             ORDER BY created_at DESC`
+        );
+        res.json({ success: true, total: result.rows.length, prompts: result.rows });
+    } catch (error) {
+        console.error('列出所有语气 Prompt 失败:', error);
+        res.status(500).json({ error: '查询失败' });
     }
 });
 
@@ -51,6 +134,115 @@ router.delete('/voice-prompts/:id', authenticate, async (req, res) => {
     } catch (error) {
         console.error('删除语气 Prompt 失败:', error);
         res.status(500).json({ error: '删除失败' });
+    }
+});
+
+/**
+ * 设置语气 Prompt 为公共（管理员功能）
+ * 用于一次性设置公共模板
+ */
+router.post('/voice-prompts/:id/set-public', authenticate, async (req, res) => {
+    try {
+        // 简单的管理员检查（可以根据需要改进）
+        const adminUsers = ['admin', 'rayguo']; // 允许的管理员用户名
+        const username = req.user.username || '';
+
+        if (!adminUsers.includes(username.toLowerCase())) {
+            return res.status(403).json({ error: '无权限执行此操作' });
+        }
+
+        const { isPublic = true } = req.body;
+        const result = await voicePromptDb.setPublic(req.params.id, isPublic);
+
+        if (!result) {
+            return res.status(404).json({ error: '未找到该记录' });
+        }
+
+        res.json({
+            success: true,
+            message: isPublic ? '已设为公共' : '已设为私有',
+            prompt: result
+        });
+    } catch (error) {
+        console.error('设置公共状态失败:', error);
+        res.status(500).json({ error: '设置失败' });
+    }
+});
+
+/**
+ * 增加语气 Prompt 使用次数
+ */
+router.post('/voice-prompts/:id/use', authenticate, async (req, res) => {
+    try {
+        const result = await voicePromptDb.incrementUsageCount(req.params.id);
+        if (!result) {
+            return res.status(404).json({ error: '未找到该记录' });
+        }
+        res.json({
+            success: true,
+            usage_count: result.usage_count
+        });
+    } catch (error) {
+        console.error('增加使用次数失败:', error);
+        res.status(500).json({ error: '操作失败' });
+    }
+});
+
+/**
+ * 开放到市场
+ */
+router.post('/voice-prompts/:id/publish', authenticate, async (req, res) => {
+    try {
+        const result = await voicePromptDb.publish(req.params.id, req.user.userId);
+        if (!result) {
+            return res.status(404).json({ error: '未找到该记录或无权限' });
+        }
+        res.json({ success: true, message: '已开放到市场', prompt: result });
+    } catch (error) {
+        console.error('开放到市场失败:', error);
+        res.status(500).json({ error: '操作失败' });
+    }
+});
+
+/**
+ * 从市场撤回
+ */
+router.post('/voice-prompts/:id/unpublish', authenticate, async (req, res) => {
+    try {
+        const result = await voicePromptDb.unpublish(req.params.id, req.user.userId);
+        if (!result) {
+            return res.status(404).json({ error: '未找到该记录或无权限' });
+        }
+        res.json({ success: true, message: '已从市场撤回', prompt: result });
+    } catch (error) {
+        console.error('从市场撤回失败:', error);
+        res.status(500).json({ error: '操作失败' });
+    }
+});
+
+/**
+ * 订阅模仿器
+ */
+router.post('/voice-prompts/:id/subscribe', authenticate, async (req, res) => {
+    try {
+        await voicePromptDb.subscribe(req.user.userId, req.params.id);
+        res.json({ success: true, message: '订阅成功' });
+    } catch (error) {
+        console.error('订阅失败:', error);
+        res.status(400).json({ error: error.message || '订阅失败' });
+    }
+});
+
+/**
+ * 取消订阅
+ */
+router.delete('/voice-prompts/:id/subscribe', authenticate, async (req, res) => {
+    try {
+        await voicePromptDb.unsubscribe(req.user.userId, req.params.id);
+        res.json({ success: true, message: '已取消订阅' });
+    } catch (error) {
+        console.error('取消订阅失败:', error);
+        res.status(500).json({ error: '取消订阅失败' });
     }
 });
 

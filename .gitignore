@@ -9,3 +9,9 @@ outputs/**/*.md
 outputs/**/*.png
 outputs/**/*.txt
 !outputs/**/.gitkeep
+
+# 临时和测试目录
+scripts/
+temp/
+test-results/
+tests/

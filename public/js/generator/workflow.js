@@ -15,10 +15,9 @@ class WorkflowComponent {
         if (!this.container) return;
 
         this.container.innerHTML = `
-            <div class="workflow">
-                <div class="workflow-steps">
-                    ${this.state.workflowSteps.map((step, index) => this.renderStep(step, index)).join('')}
-                </div>
+            <div class="relative flex items-center justify-between">
+                <div class="absolute top-1/2 h-px bg-slate-200 -z-10 transform -translate-y-1/2" style="left: 24px; right: 24px;"></div>
+                ${this.state.workflowSteps.map((step, index) => this.renderStep(step, index)).join('')}
             </div>
         `;
 
@@ -37,16 +36,38 @@ class WorkflowComponent {
     renderStep(step, index) {
         const status = this.state.getStepStatus(step.id);
         const isAccessible = this.state.isStepAccessible(step.id);
-        const isLast = index === this.state.workflowSteps.length - 1;
+        const isCurrent = status === 'current';
+        const isCompleted = status === 'completed';
+
+        // 图标映射 - 按照 1.html 模板的 Material Icons
+        const iconMap = {
+            '🔥': 'local_fire_department',  // 热帖抓取
+            '✍️': 'edit',                   // 生成内容
+            '🚀': 'auto_fix_high',          // 优化内容
+            '📝': 'lightbulb',              // 图片描述
+            '🖼️': 'image',                  // 生成图片
+            '📤': 'send'                    // 提交发布
+        };
+        const materialIcon = iconMap[step.icon] || 'circle';
+
+        // 按照 1.html 模板样式：
+        // - 当前/完成节点: bg-slate-900 + ring-4 ring-white + text-white
+        // - 未选中节点: bg-white + border border-slate-200 + text-slate-500
 
         return `
-            <div class="workflow-step ${status} ${isAccessible ? 'accessible' : ''}" data-step="${step.id}">
-                <div class="step-node">
-                    <span class="step-icon">${this.getStepIcon(step, status)}</span>
+            <div class="workflow-step flex flex-col items-center space-y-3 ${isAccessible ? 'cursor-pointer' : 'cursor-default'} group ${!isCurrent && !isCompleted ? 'opacity-60 hover:opacity-100' : ''} transition-opacity" data-step="${step.id}">
+                <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                    isCurrent || isCompleted
+                        ? 'ring-4 ring-white'
+                        : 'border border-slate-200 group-hover:border-slate-400'
+                }" style="background: ${isCurrent || isCompleted ? '#0f172a' : '#ffffff'};">
+                    <span class="material-icons-outlined text-xl" style="color: ${
+                        isCompleted
+                            ? '#22c55e'  // 完成: 绿色勾
+                            : (isCurrent ? '#ffffff' : '#64748b')  // 当前: 白色, 未选中: 灰色
+                    };">${isCompleted ? 'check' : materialIcon}</span>
                 </div>
-                <div class="step-label">${step.name}</div>
-                ${step.skippable ? '<span class="step-skippable">可跳过</span>' : ''}
-                ${!isLast ? '<div class="step-connector"></div>' : ''}
+                <span class="text-xs tracking-wide" style="color: ${isCurrent || isCompleted ? '#0f172a' : '#64748b'}; font-weight: ${isCurrent || isCompleted ? '600' : '400'};">${step.name}</span>
             </div>
         `;
     }

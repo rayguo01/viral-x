@@ -75,7 +75,7 @@ export async function fetchHotList(): Promise<HotItem[]> {
 }
 
 /**
- * Call Claude CLI to analyze data
+ * Call AI to analyze data
  * 使用 stdin 传递 prompt，避免命令行长度限制
  */
 function callClaudeCLI(prompt: string): Promise<string> {
@@ -100,7 +100,7 @@ function callClaudeCLI(prompt: string): Promise<string> {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr}`));
       }
     });
 
@@ -138,7 +138,7 @@ const JSON_SCHEMA = `
 }`;
 
 /**
- * Analyze the list using Claude CLI
+ * Analyze using AI
  */
 export async function analyzeHotList(items: HotItem[]): Promise<string> {
   const topItems = items.slice(0, 30); // Analyze top 30 items
@@ -190,7 +190,7 @@ ${JSON_SCHEMA}
 6. 不要在 <result> 标签内添加 markdown 代码块
 7. 所有标点符号必须使用英文半角字符（不要使用中文全角标点如：，。；等）`;
 
-  console.log('🤖 正在使用 Claude CLI 分析热榜数据...');
+  console.log('🤖 正在使用 AI 分析热榜数据...');
 
   return await callClaudeCLI(prompt);
 }

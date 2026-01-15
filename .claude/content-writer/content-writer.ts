@@ -215,7 +215,7 @@ function buildSystemPrompt(userInput: string): string {
 }
 
 /**
- * Call Claude CLI to generate content
+ * Call AI to generate content
  */
 function callClaudeCLI(userInput: string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -247,7 +247,7 @@ ${userInput}
 
     const timeout = setTimeout(() => {
       killed = true;
-      console.error(`⏰ Claude CLI 执行超时（${TIMEOUT / 1000}秒），强制终止`);
+      console.error(`⏰ AI 执行超时（${TIMEOUT / 1000}秒），强制终止`);
       child.kill('SIGTERM');
     }, TIMEOUT);
 
@@ -271,24 +271,24 @@ ${userInput}
       clearTimeout(timeout);
 
       if (killed) {
-        reject(new Error(`Claude CLI 执行超时（超过 ${TIMEOUT / 1000} 秒）`));
+        reject(new Error(`AI 执行超时（超过 ${TIMEOUT / 1000} 秒）`));
         return;
       }
 
       if (code === 0) {
-        console.log(`✅ Claude CLI 返回，输出长度: ${stdout.length}`);
+        console.log(`✅ AI 返回，输出长度: ${stdout.length}`);
         resolve(stdout.trim());
       } else {
-        console.error(`❌ Claude CLI 错误，退出码: ${code}`);
+        console.error(`❌ AI 错误，退出码: ${code}`);
         console.error(`stderr: ${stderr.substring(0, 500)}`);
         console.error(`stdout (最后500字符): ${stdout.substring(stdout.length - 500)}`);
-        reject(new Error(`Claude CLI 退出码: ${code}, stderr: ${stderr.substring(0, 200)}`));
+        reject(new Error(`AI 退出码: ${code}, stderr: ${stderr.substring(0, 200)}`));
       }
     });
 
     child.on('error', (error) => {
       clearTimeout(timeout);
-      console.error(`❌ Claude CLI spawn 错误:`, error);
+      console.error(`❌ AI spawn 错误:`, error);
       reject(error);
     });
 
@@ -345,7 +345,7 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
     console.log('📝 正在分析素材...');
     console.log(`素材预览: ${input.substring(0, 100)}${input.length > 100 ? '...' : ''}`);
 
-    console.log('🤖 正在使用 Claude 生成三个版本的内容...');
+    console.log('🤖 正在使用 AI 生成三个版本的内容...');
     const rawOutput = await callClaudeCLI(input);
 
     console.log('📋 正在解析 JSON 输出...');

@@ -98,7 +98,7 @@ function getPendingFiles(limitCount: number = 10): string[] {
 }
 
 /**
- * Verify content using Claude
+ * Verify content using AI
  */
 async function verifyContent(content: string, filename: string) {
   const promptTemplate = loadPromptFromSkill();

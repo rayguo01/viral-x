@@ -225,6 +225,122 @@ export interface ParseResult<T> {
 }
 
 /**
+ * 使用正则表达式从 malformed JSON 中提取关键字段
+ * 这是 JSON.parse 失败时的回退机制
+ */
+export function extractContentByRegex(jsonStr: string): any | null {
+  try {
+    const result: any = {};
+
+    // 提取 versionA/B/C 的内容 - 使用贪婪匹配找到最长的内容
+    // 使用 [\s\S] 代替 . + s 标志来匹配包括换行在内的任意字符
+    const versionPatterns = [
+      { key: 'versionA', regex: /"versionA"\s*:\s*\{[\s\S]*?"content"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/ },
+      { key: 'versionB', regex: /"versionB"\s*:\s*\{[\s\S]*?"content"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/ },
+      { key: 'versionC', regex: /"versionC"\s*:\s*\{[\s\S]*?"content"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/ }
+    ];
+
+    for (const { key, regex } of versionPatterns) {
+      const match = jsonStr.match(regex);
+      if (match && match[1]) {
+        // 提取 title - 使用 [\s\S] 代替 . + s 标志
+        const titleRegex = new RegExp(`"${key}"\\s*:\\s*\\{[\\s\\S]*?"title"\\s*:\\s*"((?:[^"\\\\]|\\\\[\\s\\S])*)"`);
+        const titleMatch = jsonStr.match(titleRegex);
+
+        result[key] = {
+          title: titleMatch ? titleMatch[1] : key,
+          content: match[1]
+        };
+      }
+    }
+
+    // 如果找不到任何版本内容，尝试更宽松的匹配
+    if (!result.versionA && !result.versionB && !result.versionC) {
+      // 尝试匹配 "content": "..." 的内容（可能包含未转义的换行）
+      const looseContentMatch = jsonStr.match(/"content"\s*:\s*"([\s\S]*?)(?:"\s*[,\}]|\n\s*"[a-zA-Z])/);
+      if (looseContentMatch && looseContentMatch[1] && looseContentMatch[1].length > 50) {
+        result.versionC = {
+          title: '恢复的内容',
+          content: looseContentMatch[1].replace(/\n/g, '\\n')
+        };
+      }
+    }
+
+    // 提取 analysis
+    const analysisMatch = jsonStr.match(/"analysis"\s*:\s*\{([^}]+)\}/);
+    if (analysisMatch) {
+      try {
+        result.analysis = JSON.parse(`{${analysisMatch[1]}}`);
+      } catch {
+        // 手动提取 analysis 的各个字段
+        const topicMatch = analysisMatch[1].match(/"topic"\s*:\s*"([^"]*)"/);
+        const audienceMatch = analysisMatch[1].match(/"audience"\s*:\s*"([^"]*)"/);
+        const toneMatch = analysisMatch[1].match(/"tone"\s*:\s*"([^"]*)"/);
+
+        result.analysis = {
+          topic: topicMatch ? topicMatch[1] : '',
+          audience: audienceMatch ? audienceMatch[1] : '',
+          tone: toneMatch ? toneMatch[1] : ''
+        };
+      }
+    }
+
+    // 提取 evaluation（简化版）
+    const totalMatch = jsonStr.match(/"total"\s*:\s*(\d+)/);
+    const summaryMatch = jsonStr.match(/"summary"\s*:\s*"([^"]*)"/);
+    if (totalMatch || summaryMatch) {
+      result.evaluation = {
+        curiosity: { score: 0, comment: '' },
+        resonance: { score: 0, comment: '' },
+        clarity: { score: 0, comment: '' },
+        shareability: { score: 0, comment: '' },
+        total: totalMatch ? parseInt(totalMatch[1]) : 0,
+        summary: summaryMatch ? summaryMatch[1] : '内容已通过回退机制恢复'
+      };
+    }
+
+    // 提取 suggestions
+    const suggestionsMatch = jsonStr.match(/"suggestions"\s*:\s*\[([\s\S]*?)\]/);
+    if (suggestionsMatch) {
+      const suggestionsStr = suggestionsMatch[1];
+      const suggestionItems = suggestionsStr.match(/"([^"]*)"/g);
+      if (suggestionItems) {
+        result.suggestions = suggestionItems.map(s => s.replace(/^"|"$/g, ''));
+      }
+    }
+
+    // 确保有最基本的结构
+    if (!result.analysis) {
+      result.analysis = { topic: '', audience: '', tone: '' };
+    }
+    if (!result.evaluation) {
+      result.evaluation = {
+        curiosity: { score: 0, comment: '' },
+        resonance: { score: 0, comment: '' },
+        clarity: { score: 0, comment: '' },
+        shareability: { score: 0, comment: '' },
+        total: 0,
+        summary: '内容已通过回退机制恢复'
+      };
+    }
+    if (!result.suggestions) {
+      result.suggestions = ['内容已通过回退机制恢复，建议重新生成以获取完整评估'];
+    }
+
+    // 只有当有至少一个版本内容时才返回结果
+    if (result.versionA || result.versionB || result.versionC) {
+      console.log(`🔧 正则回退提取: versionA=${!!result.versionA}, versionB=${!!result.versionB}, versionC=${!!result.versionC}`);
+      return result;
+    }
+
+    return null;
+  } catch (e) {
+    console.error('正则回退提取失败:', e);
+    return null;
+  }
+}
+
+/**
  * 健壮的 JSON 解析主函数
  * 支持多层回退和错误处理
  */
@@ -279,6 +395,33 @@ export function parseRobustJSON<T = any>(
     };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
+    console.log(`⚠️ JSON.parse 失败，尝试正则回退提取: ${error}`);
+
+    // 回退：使用正则表达式提取关键字段
+    const recoveredData = extractContentByRegex(jsonStr);
+    if (recoveredData && recoveredData.versionC?.content) {
+      console.log('✓ 正则回退提取成功，恢复了主要内容');
+
+      // 自定义验证器
+      if (validator) {
+        const validation = validator(recoveredData);
+        if (!validation.valid) {
+          return {
+            success: false,
+            error: validation.error,
+            data: recoveredData as T,
+            reasoning
+          };
+        }
+      }
+
+      return {
+        success: true,
+        data: recoveredData as T,
+        reasoning
+      };
+    }
+
     return {
       success: false,
       error: `JSON 解析失败: ${error}`,
@@ -352,6 +495,7 @@ export default {
   extractFromXmlTag,
   extractReasoning,
   extractJSON,
+  extractContentByRegex,
   parseRobustJSON,
   generateXMLOutputInstructions,
   generateSimpleOutputInstructions

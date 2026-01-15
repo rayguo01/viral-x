@@ -537,7 +537,7 @@ class Scheduler {
                                err.message.includes('执行失败') ||
                                err.message.includes('分析失败') ||
                                err.message.includes('未找到报告文件') ||
-                               err.message.includes('Claude CLI');
+                               err.message.includes('AI');
 
             if (isRetryable && attempt < this.maxRetries) {
                 console.log(`[调度器] domain-trends:${presetId} 第 ${attempt} 次失败，${this.retryDelay / 1000}秒后重试...`);
