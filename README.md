@@ -38,8 +38,11 @@
 #### 落地页
 ![落地页](docs/screenshots/landing.png)
 
-#### 热点追踪
-![热点追踪](docs/screenshots/trends.png)
+#### 工作流
+![内容生成](docs/screenshots/workflow.png)
+
+#### 话题选择
+![内容生成](docs/screenshots/topic.png)
 
 #### 内容生成 & 风格选择
 ![内容生成](docs/screenshots/content.png)
@@ -176,43 +179,146 @@ From trend tracking to one-click publishing, create your first viral post in 10 
 ## Features
 
 - **Real-time Trend Tracking** - Auto-fetch trends from X and Chinese platforms, hourly updates
-- **AI Content Generation** - High-quality posts based on methodology
+- **AI Content Generation** - High-quality posts based on proven methodology
 - **Viral Optimization** - AI scoring and suggestions to boost viral potential
 - **Writing Style Mimicry** - Analyze influencer styles and generate matching content
 - **AI Image Generation** - Gemini-powered images matching your content
 - **One-Click Publishing** - Direct posting to X via OAuth
 
+## Demo
+
+### Workflow
+
+```
+Select Topic → Generate Content → Viral Optimization → Generate Image → Publish
+```
+
+### Screenshots
+
+#### Landing Page
+![Landing](docs/screenshots/landing.png)
+
+#### Workflow
+![Workflow](docs/screenshots/workflow.png)
+
+#### Topic Selection
+![Topic](docs/screenshots/topic.png)
+
+#### Content Generation & Style Selection
+![Content](docs/screenshots/content.png)
+
 ## Quick Start
+
+### Prerequisites
+
+- Node.js >= 18
+- PostgreSQL database (recommend [Neon](https://neon.tech))
+- [Claude CLI](https://github.com/anthropics/claude-code) installed
+
+### Installation
 
 ```bash
 # Clone
 git clone https://github.com/rayguo17/viral-x.git
 cd viral-x
 
-# Install
+# Install dependencies
 npm install
 
-# Configure
+# Configure environment
 cp .env.example .env
-# Edit .env with your credentials
+```
 
-# Run
+### Environment Variables
+
+Edit `.env` file:
+
+```env
+# Required
+DATABASE_URL=postgresql://user:password@host/dbname?schema=web_cc
+JWT_SECRET=your-secret-key
+
+# Twitter OAuth (X login and publishing)
+TWITTER_CLIENT_ID=your-client-id
+TWITTER_CLIENT_SECRET=your-client-secret
+TWITTER_CALLBACK_URL=https://your-domain.com/api/twitter/callback
+
+# Twitter API (trend fetching)
+TWITTER_API_IO_KEY=your-api-key
+
+# AI Image Generation (optional)
+GEMINI_API_KEY=your-gemini-key
+```
+
+### Run
+
+```bash
+# Development mode
 npm run dev
+
+# Production mode
+npm start
 ```
 
 Visit http://localhost:3000
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express, WebSocket
-- **Database**: PostgreSQL (Neon)
-- **Auth**: JWT + Twitter OAuth 2.0
-- **AI**: Claude CLI + Gemini API
-- **Scheduling**: node-cron
+| Layer | Technology |
+|-------|------------|
+| Frontend | HTML5 + CSS3 + Vanilla JS |
+| Backend | Node.js + Express |
+| Real-time | WebSocket |
+| Database | PostgreSQL (Neon) |
+| Auth | JWT + Twitter OAuth 2.0 |
+| AI | Claude CLI + Gemini API |
+| Scheduling | node-cron |
+
+## Project Structure
+
+```
+viral-x/
+├── .claude/                # AI Skills scripts
+│   ├── x-trends/           # X trend fetching
+│   ├── tophub-trends/      # Chinese trend fetching
+│   ├── content-writer/     # Content generation
+│   ├── viral-verification/ # Viral optimization
+│   ├── voice-mimicker/     # Writing style analysis
+│   └── gemini-image-gen/   # AI image generation
+├── public/                 # Frontend static files
+├── src/                    # Backend code
+│   ├── routes/             # API routes
+│   ├── services/           # Business services
+│   └── server.js           # Entry point
+└── docs/                   # Documentation
+```
+
+## Deployment
+
+### PM2 (Recommended)
+
+```bash
+npm install -g pm2
+pm2 start src/server.js --name viral-x
+pm2 save
+```
+
+### Docker
+
+```bash
+docker build -t viral-x .
+docker run -p 3000:3000 --env-file .env viral-x
+```
 
 ## Contributing
 
 PRs are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
