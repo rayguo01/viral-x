@@ -6044,18 +6044,20 @@
     line-height: 1.5;
 }
 
-.voice-detail-traits {
+.voice-detail-traits-list {
+    margin: 0;
+    padding: 0 0 0 20px;
     font-size: 13px;
     color: #475569;
-    line-height: 1.5;
+    line-height: 1.8;
 }
 
-.voice-detail-trait {
-    display: inline;
+.voice-detail-traits-list li {
+    margin-bottom: 4px;
 }
 
-.voice-detail-trait:not(:last-child)::after {
-    content: "、";
+.voice-detail-traits-list li:last-child {
+    margin-bottom: 0;
 }
 
 .voice-detail-actions {

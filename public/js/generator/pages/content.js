@@ -313,7 +313,7 @@ class ContentPage {
         const existingModal = document.querySelector('.voice-detail-modal');
         if (existingModal) existingModal.remove();
 
-        // 解析 traits
+        // 解析 traits 为列表
         let traitsHtml = '';
         if (data.traits) {
             const traits = data.traits.split(',').map(t => t.trim()).filter(t => t);
@@ -321,9 +321,9 @@ class ContentPage {
                 traitsHtml = `
                     <div class="voice-detail-section">
                         <div class="voice-detail-label">核心特点</div>
-                        <div class="voice-detail-traits">
-                            ${traits.map(t => `<span class="voice-detail-trait">${t}</span>`).join('')}
-                        </div>
+                        <ul class="voice-detail-traits-list">
+                            ${traits.map(t => `<li>${t}</li>`).join('')}
+                        </ul>
                     </div>
                 `;
             }
