@@ -505,14 +505,25 @@
 
         // X 登录
         document.getElementById('twitter-login-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('twitter-login-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="twitter-icon">𝕏</span> <span>正在跳转...</span>';
+
             try {
-                const res = await fetch('/api/twitter/auth/url');
+                const res = await fetch('/api/twitter/login');
                 const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || '获取授权链接失败');
+                }
+
                 if (data.authUrl) {
                     window.location.href = data.authUrl;
                 }
             } catch (err) {
-                document.getElementById('login-error').textContent = '获取授权链接失败';
+                document.getElementById('login-error').textContent = err.message || '获取授权链接失败';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="twitter-icon">𝕏</span> <span>使用 X 登录</span>';
             }
         });
 
