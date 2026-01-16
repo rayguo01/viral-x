@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#94a3b8">
+    <meta name="format-detection" content="telephone=no">
+    <title>Viral-X - 登录</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+    <link rel="apple-touch-icon" href="/logo-200.png">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        /* 全局重置 */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 禁止所有滚动和弹性效果 */
+        html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            /* 纯灰色背景，使用多层确保覆盖 */
+            background: #94a3b8;
+            -webkit-overflow-scrolling: touch;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* 背景容器 - 固定定位覆盖整个视口 */
+        .bg-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: #94a3b8;
+            z-index: 0;
+        }
+
+        /* 毛玻璃叠加层 */
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(148, 163, 184, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            z-index: 1;
+        }
+
+        /* 主容器 - 可滚动的内容区域 */
+        .main-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+
+        /* 登录卡片 */
+        .login-card {
+            width: 100%;
+            max-width: 380px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 32px 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            flex-shrink: 0;
+        }
+
+        /* Logo 区域 */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .logo-img {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 12px;
+        }
+
+        .logo-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .logo-subtitle {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 300;
+        }
+
+        /* Tab 切换 */
+        .tab-container {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: rgba(226, 232, 240, 0.6);
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: transparent;
+            color: #64748b;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #0f172a;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .tab-btn .material-icons-outlined {
+            font-size: 18px;
+        }
+
+        /* 表单样式 */
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .auth-form.hidden {
+            display: none;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group .material-icons-outlined {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 20px;
+            pointer-events: none;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px 14px 48px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 16px;
+            color: #0f172a;
+            outline: none;
+            transition: all 0.2s ease;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-input::placeholder {
+            color: #475569;
+        }
+
+        .form-input:focus {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+        }
+
+        .form-input.uppercase {
+            text-transform: uppercase;
+        }
+
+        /* 提交按钮 */
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 4px;
+        }
+
+        .submit-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* 错误信息 */
+        .error-msg {
+            color: #ef4444;
+            font-size: 13px;
+            text-align: center;
+            min-height: 20px;
+        }
+
+        /* 分割线 */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .divider-text {
+            padding: 0 16px;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        /* X 登录按钮 */
+        .twitter-btn {
+            width: 100%;
+            padding: 14px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 9999px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #0f172a;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+        }
+
+        .twitter-btn:active {
+            background: #000;
+            color: white;
+        }
+
+        .twitter-icon {
+            font-family: serif;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        /* 键盘弹出时调整 */
+        @media (max-height: 600px) {
+            .main-container {
+                justify-content: flex-start;
+                padding-top: 20px;
+            }
+
+            .login-card {
+                padding: 24px 20px;
+            }
+
+            .logo-section {
+                margin-bottom: 20px;
+            }
+
+            .logo-img {
+                width: 48px;
+                height: 48px;
+            }
+
+            .logo-title {
+                font-size: 24px;
+            }
+        }
+
+        /* 极小高度（键盘完全展开） */
+        @media (max-height: 450px) {
+            .logo-section {
+                display: none;
+            }
+
+            .divider, .twitter-btn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景层 -->
+    <div class="bg-container"></div>
+    <div class="bg-overlay"></div>
+
+    <!-- 主内容 -->
+    <div class="main-container">
+        <div class="login-card">
+            <!-- Logo -->
+            <div class="logo-section">
+                <img src="/logo-100.png" alt="Viral-X" class="logo-img">
+                <h1 class="logo-title">Viral-X</h1>
+                <p class="logo-subtitle">AI 驱动的 X 爆款内容创作平台</p>
+            </div>
+
+            <!-- Tab 切换 -->
+            <div class="tab-container">
+                <button class="tab-btn active" data-tab="login">
+                    <span class="material-icons-outlined">login</span>
+                    <span>登录</span>
+                </button>
+                <button class="tab-btn" data-tab="register">
+                    <span class="material-icons-outlined">person_add</span>
+                    <span>注册</span>
+                </button>
+            </div>
+
+            <!-- 登录表单 -->
+            <form id="login-form" class="auth-form">
+                <div class="input-group">
+                    <span class="material-icons-outlined">person</span>
+                    <input type="text" id="login-username" class="form-input" placeholder="用户名" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <span class="material-icons-outlined">lock</span>
+                    <input type="password" id="login-password" class="form-input" placeholder="密码" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="submit-btn">开始创作</button>
+                <p class="error-msg" id="login-error"></p>
+
+                <div class="divider">
+                    <div class="divider-line"></div>
+                    <span class="divider-text">或</span>
+                    <div class="divider-line"></div>
+                </div>
+
+                <button type="button" class="twitter-btn" id="twitter-login-btn">
+                    <span class="twitter-icon">𝕏</span>
+                    <span>使用 X 登录</span>
+                </button>
+            </form>
+
+            <!-- 注册表单 -->
+            <form id="register-form" class="auth-form hidden">
+                <div class="input-group">
+                    <span class="material-icons-outlined">confirmation_number</span>
+                    <input type="text" id="register-invitation-code" class="form-input uppercase" placeholder="邀请码" required autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <span class="material-icons-outlined">person</span>
+                    <input type="text" id="register-username" class="form-input" placeholder="用户名" required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <span class="material-icons-outlined">lock</span>
+                    <input type="password" id="register-password" class="form-input" placeholder="密码 (至少6位)" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="submit-btn">创建账号</button>
+                <p class="error-msg" id="register-error"></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Tab 切换
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+
+                // 更新 Tab 状态
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // 切换表单
+                document.querySelectorAll('.auth-form').forEach(form => form.classList.add('hidden'));
+                document.getElementById(tab + '-form').classList.remove('hidden');
+
+                // 清除错误信息
+                document.getElementById('login-error').textContent = '';
+                document.getElementById('register-error').textContent = '';
+            });
+        });
+
+        // 登录处理
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+
+            errorEl.textContent = '';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    // 登录成功，跳转到主页面（添加参数跳过移动端重定向）
+                    window.location.href = '/login.html?from=mobile';
+                } else {
+                    errorEl.textContent = data.error || '登录失败';
+                }
+            } catch (err) {
+                errorEl.textContent = '网络错误，请重试';
+            }
+        });
+
+        // 注册处理
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const invitationCode = document.getElementById('register-invitation-code').value.trim().toUpperCase();
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+            const errorEl = document.getElementById('register-error');
+
+            errorEl.textContent = '';
+
+            if (password.length < 6) {
+                errorEl.textContent = '密码至少需要6位';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, invitationCode })
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    // 注册成功，跳转到主页面（添加参数跳过移动端重定向）
+                    window.location.href = '/login.html?from=mobile';
+                } else {
+                    errorEl.textContent = data.error || '注册失败';
+                }
+            } catch (err) {
+                errorEl.textContent = '网络错误，请重试';
+            }
+        });
+
+        // X 登录
+        document.getElementById('twitter-login-btn').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/twitter/auth/url');
+                const data = await res.json();
+                if (data.authUrl) {
+                    window.location.href = data.authUrl;
+                }
+            } catch (err) {
+                document.getElementById('login-error').textContent = '获取授权链接失败';
+            }
+        });
+
+        // 检查是否已登录
+        const token = localStorage.getItem('token');
+        if (token) {
+            // 已登录，跳转到主页面（添加参数跳过移动端重定向）
+            window.location.href = '/login.html?from=mobile';
+        }
+
+        // 处理视口变化（键盘弹出/收起）
+        let initialHeight = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            // 动态调整
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        });
+
+        // 初始化
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+
+        // 阻止橡皮筋效果
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target.closest('.main-container')) {
+                // 允许内容区域滚动
+                return;
+            }
+            e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>

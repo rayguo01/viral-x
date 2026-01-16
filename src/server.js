@@ -22,6 +22,28 @@ const server = http.createServer(app);
 
 // 中间件
 app.use(express.json());
+
+// 移动端登录页面重定向
+app.get(['/', '/login.html'], (req, res, next) => {
+    const userAgent = req.headers['user-agent'] || '';
+    const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+
+    // 如果是从移动端登录页跳转过来的（已登录），不再重定向
+    const fromMobile = req.query.from === 'mobile';
+
+    if (isMobile && !fromMobile) {
+        // 移动设备首次访问登录页，重定向到移动端登录页
+        return res.redirect('/login-mobile.html');
+    }
+
+    // 根路径需要转发到 login.html
+    if (req.path === '/') {
+        return res.sendFile(path.join(__dirname, '../public/login.html'));
+    }
+
+    next();
+});
+
 app.use(express.static(path.join(__dirname, '../public')));
 
 // API 路由
