@@ -5807,6 +5807,265 @@
 }
 
 /* ===================================
+   写作风格选择器 - 移动端适配（头像模式）
+   =================================== */
+@media (max-width: 768px) {
+    .voice-style-tabs {
+        margin-top: 10px;
+    }
+
+    .voice-tabs-header {
+        padding: 0 4px;
+    }
+
+    .voice-tab-btn {
+        padding: 10px 8px;
+        font-size: 12px;
+        gap: 4px;
+    }
+
+    .voice-tab-btn .material-icons-outlined {
+        font-size: 16px;
+    }
+
+    .voice-tab-btn > span:nth-child(2) {
+        /* 隐藏文字，只显示图标和数量 */
+        display: none;
+    }
+
+    .voice-tab-count {
+        min-width: 18px;
+        height: 18px;
+        font-size: 10px;
+    }
+
+    .voice-tabs-content {
+        padding: 10px;
+    }
+
+    /* 移动端头像模式 */
+    .voice-tab-items {
+        gap: 12px;
+        justify-content: flex-start;
+    }
+
+    .voice-tab-items .voice-style-item {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: none;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .voice-tab-items .voice-style-item:hover {
+        background: transparent;
+        border: none;
+    }
+
+    .voice-tab-items .voice-style-item.selected {
+        background: transparent;
+        border: none;
+    }
+
+    /* 头像样式 */
+    .voice-tab-items .voice-style-item .voice-avatar {
+        width: 48px;
+        height: 48px;
+        border: 2px solid rgba(148, 163, 184, 0.3);
+        transition: all 0.2s ease;
+    }
+
+    .voice-tab-items .voice-style-item:hover .voice-avatar {
+        border-color: rgba(245, 158, 11, 0.5);
+    }
+
+    .voice-tab-items .voice-style-item.selected .voice-avatar {
+        border-color: #10b981;
+    }
+
+    /* 隐藏文字信息 */
+    .voice-tab-items .voice-style-item .voice-item-info {
+        display: none;
+    }
+
+    /* 勾选图标位置调整 */
+    .voice-tab-items .voice-style-item .voice-check {
+        position: absolute;
+        top: auto;
+        bottom: -4px;
+        right: -4px;
+        font-size: 18px;
+        color: #10b981;
+        background: white;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* 空状态 */
+    .voice-tab-empty {
+        padding: 20px 16px;
+        font-size: 12px;
+    }
+}
+
+/* 写作风格详情弹窗 */
+.voice-detail-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+}
+
+.voice-detail-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-detail-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.voice-detail-content {
+    position: relative;
+    width: 90%;
+    max-width: 340px;
+    background: white;
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: voiceDetailSlideUp 0.3s ease;
+}
+
+@keyframes voiceDetailSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.voice-detail-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.voice-detail-avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid rgba(148, 163, 184, 0.2);
+    margin-bottom: 12px;
+}
+
+.voice-detail-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.voice-detail-username {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.voice-detail-body {
+    margin-bottom: 20px;
+}
+
+.voice-detail-section {
+    margin-bottom: 12px;
+}
+
+.voice-detail-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.voice-detail-text {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.voice-detail-traits {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.voice-detail-trait {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 12px;
+}
+
+.voice-detail-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.voice-detail-actions .btn {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.voice-detail-actions .btn-cancel {
+    background: #f1f5f9;
+    color: #64748b;
+    border: none;
+}
+
+.voice-detail-actions .btn-cancel:hover {
+    background: #e2e8f0;
+}
+
+.voice-detail-actions .btn-select {
+    background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+    color: white;
+    border: none;
+}
+
+.voice-detail-actions .btn-select:hover {
+    opacity: 0.9;
+}
+
+/* ===================================
    动画
    =================================== */
 @keyframes fadeIn {

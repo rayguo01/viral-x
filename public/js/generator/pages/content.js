@@ -107,6 +107,13 @@ class ContentPage {
     }
 
     /**
+     * 检测是否为移动端
+     */
+    isMobile() {
+        return window.innerWidth <= 768;
+    }
+
+    /**
      * 渲染语气选项列表（Tab 布局）
      */
     renderVoiceStyleOptions() {
@@ -120,13 +127,21 @@ class ContentPage {
         const data = this.voiceStylesData || { popular: [], mine: [], subscribed: [] };
         const currentTab = this.voiceStyleTab || 'popular';
 
-        // 渲染单个语气项
+        // 渲染单个语气项（添加 data 属性用于弹窗）
         const renderItem = (style) => {
+            const escapeAttr = (str) => (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
             // 处理默认语气
             if (style.isDefault) {
                 const isSelected = !this.selectedVoiceStyleId;
                 return `
-                    <div class="voice-style-item default-style ${isSelected ? 'selected' : ''}" data-id="">
+                    <div class="voice-style-item default-style ${isSelected ? 'selected' : ''}"
+                         data-id=""
+                         data-name="${escapeAttr(style.name)}"
+                         data-role="${escapeAttr(style.role)}"
+                         data-avatar="${escapeAttr(style.avatar)}"
+                         data-traits=""
+                         data-username="">
                         <img src="${style.avatar}" alt="${style.name}" class="voice-avatar">
                         <div class="voice-item-info">
                             <span class="voice-name">${style.name}</span>
@@ -139,8 +154,16 @@ class ContentPage {
             const isSelected = this.selectedVoiceStyleId === style.id;
             const displayName = style.display_name || style.username;
             const role = style.role || '';
+            const coreTraits = style.core_traits || '';
+            const username = style.username || '';
             return `
-                <div class="voice-style-item ${isSelected ? 'selected' : ''}" data-id="${style.id}">
+                <div class="voice-style-item ${isSelected ? 'selected' : ''}"
+                     data-id="${style.id}"
+                     data-name="${escapeAttr(displayName)}"
+                     data-role="${escapeAttr(role)}"
+                     data-avatar="${escapeAttr(style.avatar_url || defaultAvatar)}"
+                     data-traits="${escapeAttr(coreTraits)}"
+                     data-username="${escapeAttr(username)}">
                     <img src="${style.avatar_url || defaultAvatar}" alt="${displayName}" class="voice-avatar"
                          onerror="this.src='${defaultAvatar}'">
                     <div class="voice-item-info">
@@ -243,25 +266,117 @@ class ContentPage {
         const items = document.querySelectorAll('.voice-style-item');
         items.forEach(item => {
             item.addEventListener('click', () => {
-                // 移除所有选中状态和勾选图标
-                items.forEach(i => {
-                    i.classList.remove('selected');
-                    const check = i.querySelector('.voice-check');
-                    if (check) check.remove();
-                });
-                // 选中当前项
-                item.classList.add('selected');
-                // 添加勾选图标
-                if (!item.querySelector('.voice-check')) {
-                    const check = document.createElement('span');
-                    check.className = 'voice-check material-icons-outlined';
-                    check.textContent = 'check_circle';
-                    item.appendChild(check);
+                if (this.isMobile()) {
+                    // 移动端：显示详情弹窗
+                    this.showVoiceDetailModal(item);
+                } else {
+                    // PC端：直接选中
+                    this.selectVoiceStyle(item);
                 }
-                // 更新选中的语气 ID
-                const id = item.dataset.id;
-                this.selectedVoiceStyleId = id ? parseInt(id) : null;
             });
+        });
+    }
+
+    /**
+     * 选中语气风格
+     */
+    selectVoiceStyle(item) {
+        const items = document.querySelectorAll('.voice-style-item');
+        // 移除所有选中状态和勾选图标
+        items.forEach(i => {
+            i.classList.remove('selected');
+            const check = i.querySelector('.voice-check');
+            if (check) check.remove();
+        });
+        // 选中当前项
+        item.classList.add('selected');
+        // 添加勾选图标
+        if (!item.querySelector('.voice-check')) {
+            const check = document.createElement('span');
+            check.className = 'voice-check material-icons-outlined';
+            check.textContent = 'check_circle';
+            item.appendChild(check);
+        }
+        // 更新选中的语气 ID
+        const id = item.dataset.id;
+        this.selectedVoiceStyleId = id ? parseInt(id) : null;
+    }
+
+    /**
+     * 显示语气风格详情弹窗（移动端）
+     */
+    showVoiceDetailModal(item) {
+        const data = {
+            id: item.dataset.id,
+            name: item.dataset.name,
+            role: item.dataset.role,
+            avatar: item.dataset.avatar,
+            traits: item.dataset.traits,
+            username: item.dataset.username
+        };
+
+        // 移除已存在的弹窗
+        const existingModal = document.querySelector('.voice-detail-modal');
+        if (existingModal) existingModal.remove();
+
+        // 解析 traits
+        let traitsHtml = '';
+        if (data.traits) {
+            const traits = data.traits.split(',').map(t => t.trim()).filter(t => t);
+            if (traits.length > 0) {
+                traitsHtml = `
+                    <div class="voice-detail-section">
+                        <div class="voice-detail-label">核心特点</div>
+                        <div class="voice-detail-traits">
+                            ${traits.map(t => `<span class="voice-detail-trait">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // 创建弹窗
+        const modal = document.createElement('div');
+        modal.className = 'voice-detail-modal show';
+        modal.innerHTML = `
+            <div class="voice-detail-overlay"></div>
+            <div class="voice-detail-content">
+                <div class="voice-detail-header">
+                    <img src="${data.avatar}" alt="${data.name}" class="voice-detail-avatar"
+                         onerror="this.src='data:image/svg+xml,${encodeURIComponent('<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"20\" fill=\"#6366f1\"/><text x=\"20\" y=\"26\" text-anchor=\"middle\" fill=\"white\" font-size=\"16\">?</text></svg>')}'">
+                    <div class="voice-detail-name">${data.name}</div>
+                    ${data.username ? `<div class="voice-detail-username">@${data.username}</div>` : ''}
+                </div>
+                <div class="voice-detail-body">
+                    ${data.role ? `
+                        <div class="voice-detail-section">
+                            <div class="voice-detail-label">角色定位</div>
+                            <div class="voice-detail-text">${data.role}</div>
+                        </div>
+                    ` : ''}
+                    ${traitsHtml}
+                </div>
+                <div class="voice-detail-actions">
+                    <button class="btn btn-cancel" id="voice-detail-cancel">取消</button>
+                    <button class="btn btn-select" id="voice-detail-select">使用此风格</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 绑定事件
+        modal.querySelector('.voice-detail-overlay').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#voice-detail-cancel').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        modal.querySelector('#voice-detail-select').addEventListener('click', () => {
+            this.selectVoiceStyle(item);
+            modal.remove();
         });
     }
 
