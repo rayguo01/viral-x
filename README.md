@@ -1,218 +1,231 @@
-# Web Claude Code
+<div align="center">
 
-一个基于 Node.js 的 Claude CLI Web 界面，通过 WebSocket 实现实时流式输出。
+# Viral-X
+
+**AI 驱动的 X 平台爆款内容生成器**
+
+从热点追踪到一键发布，十分钟写出你的第一条爆款
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/anthropics/claude-code/pulls)
+
+[在线体验](https://viral-x.app) · [English](#english)
+
+</div>
+
+---
 
 ## 功能特性
 
-- **用户系统** - 注册/登录，JWT 认证
-- **多会话管理** - 创建、切换、删除对话
-- **实时流式输出** - WebSocket 推送，打字机效果
-- **上下文保持** - 支持多轮对话，自动恢复会话
-- **进程池架构** - Claude CLI 长运行，响应更快
-- **移动端适配** - 响应式设计，触摸手势支持
+- **实时热点追踪** - 自动抓取 X 平台和国内热点，每小时更新
+- **AI 内容生成** - 基于 Defou x Stanley 方法论，生成高质量帖子
+- **爆款优化** - AI 评分和优化建议，提升病毒传播潜力
+- **写作风格模仿** - 分析大V推文风格，一键模仿生成
+- **AI 智能配图** - Gemini 生成与内容匹配的配图
+- **一键发布** - OAuth 授权后直接发布到 X 平台
 
-## 系统架构
+## 演示
+
+### 工作流程
 
 ```
-┌─────────────┐     WebSocket      ┌─────────────┐    stdin/stdout   ┌─────────────┐
-│   浏览器    │ ←───────────────→  │  Node.js    │ ←───────────────→ │ Claude CLI  │
-│  (前端)     │    实时通信         │   服务器    │    stream-json    │  (进程池)   │
-└─────────────┘                    └─────────────┘                   └─────────────┘
-                                          ↓
-                                   ┌─────────────┐
-                                   │ PostgreSQL  │
-                                   │   (Neon)    │
-                                   └─────────────┘
+热点选择 → 内容生成 → 爆款优化 → 生成配图 → 发布帖子
 ```
 
-## 技术栈
+### 截图预览
 
-- **后端**: Node.js, Express, WebSocket (ws)
-- **数据库**: PostgreSQL (Neon)
-- **认证**: JWT (jsonwebtoken)
-- **CLI**: Claude Code CLI (stream-json 模式)
-- **前端**: 原生 HTML/CSS/JavaScript
-
-## 前置要求
-
-- Node.js >= 18
-- Claude CLI 已安装并配置
-- PostgreSQL 数据库 (推荐 [Neon](https://neon.tech))
-
-### 安装 Claude CLI
-
-```bash
-# macOS
-brew install claude
-
-# 或使用 npm
-npm install -g @anthropic-ai/claude-code
-
-# 验证安装
-claude --version
-```
+| 热点追踪 | 内容生成 | 爆款优化 |
+|:---:|:---:|:---:|
+| 自动抓取实时热点 | AI 生成帖子内容 | 评分和优化建议 |
 
 ## 快速开始
 
-### 1. 克隆仓库
+### 前置要求
+
+- Node.js >= 18
+- PostgreSQL 数据库（推荐 [Neon](https://neon.tech)）
+- [Claude CLI](https://github.com/anthropics/claude-code) 已安装
+
+### 安装
 
 ```bash
-git clone https://github.com/rayguo01/web_cc.git
-cd web_cc
-```
+# 克隆仓库
+git clone https://github.com/anthropics/claude-code.git
+cd web-cc
 
-### 2. 安装依赖
-
-```bash
+# 安装依赖
 npm install
-```
 
-### 3. 配置环境变量
-
-```bash
+# 配置环境变量
 cp .env.example .env
 ```
+
+### 环境变量
 
 编辑 `.env` 文件：
 
 ```env
-DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
-JWT_SECRET=your-secret-key-here
-PORT=3000
+# 必需
+DATABASE_URL=postgresql://user:password@host/dbname?schema=web_cc
+JWT_SECRET=your-secret-key
+
+# Twitter OAuth（X 登录和发布）
+TWITTER_CLIENT_ID=your-client-id
+TWITTER_CLIENT_SECRET=your-client-secret
+TWITTER_CALLBACK_URL=https://your-domain.com/api/twitter/callback
+
+# Twitter API（热点抓取）
+TWITTER_API_IO_KEY=your-api-key
+
+# AI 配图（可选）
+GEMINI_API_KEY=your-gemini-key
 ```
 
-### 4. 启动服务
+### 启动
 
 ```bash
+# 开发模式
+npm run dev
+
 # 生产模式
 npm start
-
-# 开发模式 (热重载)
-npm run dev
 ```
 
-### 5. 访问应用
+访问 http://localhost:3000
 
-打开浏览器访问 http://localhost:3000
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 前端 | HTML5 + CSS3 + Vanilla JS |
+| 后端 | Node.js + Express |
+| 实时通信 | WebSocket |
+| 数据库 | PostgreSQL (Neon) |
+| 认证 | JWT + Twitter OAuth 2.0 |
+| AI 能力 | Claude CLI + Gemini API |
+| 定时任务 | node-cron |
 
 ## 项目结构
 
 ```
 web-cc/
-├── docs/                    # 文档
-│   ├── summary.md          # 项目概要
-│   ├── 技术方案.md          # 技术设计文档
-│   └── 启动说明.md          # 详细部署指南
-├── public/                  # 静态资源
-│   ├── index.html          # 单页应用
-│   ├── css/style.css       # 样式文件
-│   └── js/app.js           # 前端逻辑
-├── src/                     # 后端代码
-│   ├── server.js           # 服务器入口
-│   ├── config/database.js  # 数据库配置
-│   ├── middleware/auth.js  # JWT 中间件
-│   ├── routes/auth.js      # 认证 API
-│   ├── routes/sessions.js  # 会话 API
-│   ├── services/claude.js  # Claude 进程池
-│   └── websocket/handler.js # WebSocket 处理
-├── .env.example            # 环境变量示例
-├── package.json
-└── README.md
+├── .claude/                # AI Skills 脚本
+│   ├── x-trends/           # X 热点抓取
+│   ├── tophub-trends/      # 国内热点抓取
+│   ├── content-writer/     # 内容生成
+│   ├── viral-verification/ # 爆款优化
+│   ├── voice-mimicker/     # 写作风格分析
+│   └── gemini-image-gen/   # AI 配图
+├── public/                 # 前端静态文件
+├── src/                    # 后端代码
+│   ├── routes/             # API 路由
+│   ├── services/           # 业务服务
+│   └── server.js           # 入口文件
+└── docs/                   # 文档
 ```
 
-## API 接口
+## 部署
 
-### REST API
+### PM2（推荐）
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | /api/auth/register | 用户注册 |
-| POST | /api/auth/login | 用户登录 |
-| GET | /api/sessions | 获取会话列表 |
-| DELETE | /api/sessions/:id | 删除会话 |
-| GET | /api/sessions/:id/messages | 获取会话消息 |
-
-### WebSocket 消息
-
-**客户端 → 服务器**:
-```json
-{"type": "message", "sessionId": "uuid", "content": "你好"}
+```bash
+npm install -g pm2
+pm2 start src/server.js --name viral-x
+pm2 save
 ```
 
-**服务器 → 客户端**:
-```json
-{"type": "session_created", "sessionId": "uuid"}
-{"type": "start"}
-{"type": "stream", "content": "部分响应..."}
-{"type": "done", "sessionId": "uuid"}
-{"type": "error", "message": "错误信息"}
+### Docker
+
+```bash
+docker build -t viral-x .
+docker run -p 3000:3000 --env-file .env viral-x
 ```
 
-## 进程池架构
-
-项目采用进程池模式管理 Claude CLI，避免每次请求都启动新进程：
-
-- **每个会话一个进程** - 通过 stdin/stdout 持续通信
-- **自动复用** - 同一会话内的请求复用进程
-- **空闲清理** - 5分钟无活动自动关闭
-- **会话恢复** - 进程关闭后通过 `--resume` 恢复上下文
-
-```javascript
-// 配置参数 (src/services/claude.js)
-maxIdleTime: 5 * 60 * 1000,  // 空闲超时时间
-maxProcesses: 10              // 最大进程数
-```
-
-## 前端设计
-
-### 主题: 晨曦微风
-
-- **配色**: 薄荷绿 (#10b981) + 天蓝 (#0ea5e9)
-- **字体**: Quicksand
-- **效果**: 毛玻璃、渐变、动画
-
-### 移动端优化
-
-- 抽屉式侧边栏
-- 触摸手势 (滑动开关侧边栏)
-- iPhone 安全区域适配
-- 键盘弹出自适应
-
-## 数据库表结构
-
-```sql
--- 用户表
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(50) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 会话表
-CREATE TABLE sessions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
-    title VARCHAR(100),
-    claude_session_id VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 消息表
-CREATE TABLE messages (
-    id SERIAL PRIMARY KEY,
-    session_id INTEGER REFERENCES sessions(id),
-    role VARCHAR(20) NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-## 许可证
-
-MIT
+详细部署指南请参考 [启动说明](docs/启动说明.md)
 
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'Add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 提交 Pull Request
+
+## 支持项目
+
+如果这个项目对你有帮助，欢迎支持：
+
+<a href="https://www.buymeacoffee.com/rayguo" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40"></a>
+
+- [GitHub Sponsors](https://github.com/sponsors/rayguo17)
+- [爱发电](https://afdian.com/a/rayguo)
+
+## 许可证
+
+[MIT License](LICENSE)
+
+---
+
+<a name="english"></a>
+
+# Viral-X (English)
+
+**AI-Powered Viral Content Generator for X Platform**
+
+From trend tracking to one-click publishing, create your first viral post in 10 minutes.
+
+## Features
+
+- **Real-time Trend Tracking** - Auto-fetch trends from X and Chinese platforms, hourly updates
+- **AI Content Generation** - High-quality posts based on Defou x Stanley methodology
+- **Viral Optimization** - AI scoring and suggestions to boost viral potential
+- **Writing Style Mimicry** - Analyze influencer styles and generate matching content
+- **AI Image Generation** - Gemini-powered images matching your content
+- **One-Click Publishing** - Direct posting to X via OAuth
+
+## Quick Start
+
+```bash
+# Clone
+git clone https://github.com/anthropics/claude-code.git
+cd web-cc
+
+# Install
+npm install
+
+# Configure
+cp .env.example .env
+# Edit .env with your credentials
+
+# Run
+npm run dev
+```
+
+Visit http://localhost:3000
+
+## Tech Stack
+
+- **Backend**: Node.js, Express, WebSocket
+- **Database**: PostgreSQL (Neon)
+- **Auth**: JWT + Twitter OAuth 2.0
+- **AI**: Claude CLI + Gemini API
+- **Scheduling**: node-cron
+
+## Contributing
+
+PRs are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+<div align="center">
+
+Made with Claude Code
+
+</div>
