@@ -23,8 +23,13 @@ const server = http.createServer(app);
 // 中间件
 app.use(express.json());
 
+// 根路径显示落地页
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/landing.html'));
+});
+
 // 移动端登录页面重定向
-app.get(['/', '/login.html'], (req, res, next) => {
+app.get('/login.html', (req, res, next) => {
     const userAgent = req.headers['user-agent'] || '';
     const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 
@@ -37,11 +42,6 @@ app.get(['/', '/login.html'], (req, res, next) => {
             ? '?' + new URLSearchParams(req.query).toString()
             : '';
         return res.redirect('/login-mobile.html' + queryString);
-    }
-
-    // 根路径需要转发到 login.html
-    if (req.path === '/') {
-        return res.sendFile(path.join(__dirname, '../public/login.html'));
     }
 
     next();
