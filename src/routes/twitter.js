@@ -54,7 +54,8 @@ router.get('/login', (req, res) => {
         scope: 'tweet.read tweet.write users.read media.write offline.access',
         state: state,
         code_challenge: challenge,
-        code_challenge_method: 'S256'
+        code_challenge_method: 'S256',
+        force_login: 'true'  // 强制显示登录界面，允许切换账号
     });
 
     const authUrl = `${TWITTER_AUTH_URL}?${params.toString()}`;
@@ -89,7 +90,8 @@ router.get('/auth', authMiddleware, (req, res) => {
         scope: 'tweet.read tweet.write users.read media.write offline.access',
         state: state,
         code_challenge: challenge,
-        code_challenge_method: 'S256'
+        code_challenge_method: 'S256',
+        force_login: 'true'  // 强制显示登录界面，允许切换账号
     });
 
     const authUrl = `${TWITTER_AUTH_URL}?${params.toString()}`;
