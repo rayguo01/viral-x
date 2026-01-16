@@ -453,9 +453,9 @@
 
                 const data = await res.json();
 
-                if (data.success) {
+                if (data.token) {
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('user', JSON.stringify({ username: data.username }));
                     // 登录成功，跳转到主页面（添加参数跳过移动端重定向）
                     window.location.href = '/login.html?from=mobile';
                 } else {
@@ -490,9 +490,9 @@
 
                 const data = await res.json();
 
-                if (data.success) {
+                if (data.token) {
                     localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('user', JSON.stringify({ username: data.username }));
                     // 注册成功，跳转到主页面（添加参数跳过移动端重定向）
                     window.location.href = '/login.html?from=mobile';
                 } else {
