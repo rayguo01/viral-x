@@ -292,7 +292,7 @@ Start directly with "# Role: [Name/Archetype based on @${username}]".
 
 1. **Role Definition**: A concise archetype describing their online persona (e.g., "The Cynical Developer", "The Crypto Philosopher").
 
-2. **Domains**: 1-3 bullet points listing the main content areas/fields this person focuses on (e.g., "Crypto/Web3", "AI/Machine Learning", "Startups", "Personal Development", "Finance", "Tech", "Gaming", etc.). Use short, concise labels.
+2. **Domains**: 1-3 bullet points listing the main content areas. MUST use short, common domain labels (2-4 Chinese characters preferred). Examples: 科技, 金融, Web3, AI, 创业, 投资, 游戏, 职场, 生活, 健康, 教育, 娱乐, 电商, 营销. Do NOT use long descriptive phrases.
 
 3. **Core Traits**: 3-4 bullet points defining their personality as observed in the tweets.
 
