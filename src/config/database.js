@@ -380,6 +380,34 @@ async function initDatabase() {
             UPDATE users SET is_admin = TRUE WHERE username = 'rayguo' AND (is_admin IS NULL OR is_admin = FALSE)
         `);
 
+        // 迁移：为已有的 voice_prompts 添加 250 字限制说明
+        const characterLimitSection = `
+
+## 6. Content Length Adaptation
+
+**When generating content with character limits (e.g., 250 chars for non-Premium users):**
+- Adapt the writing style to be more concise while preserving the core personality traits
+- Prioritize the most impactful phrases and sentence patterns
+- Maintain the distinctive voice even in shorter formats
+- Focus on the most characteristic elements: tone, vocabulary, and sentence structure`;
+
+        const voicePromptsResult = await client.query(`
+            SELECT id FROM voice_prompts
+            WHERE prompt_content IS NOT NULL
+            AND prompt_content NOT LIKE '%Content Length Adaptation%'
+        `);
+
+        if (voicePromptsResult.rows.length > 0) {
+            console.log(`[迁移] 为 ${voicePromptsResult.rows.length} 条 voice_prompts 添加字数限制说明...`);
+            await client.query(`
+                UPDATE voice_prompts
+                SET prompt_content = prompt_content || $1
+                WHERE prompt_content IS NOT NULL
+                AND prompt_content NOT LIKE '%Content Length Adaptation%'
+            `, [characterLimitSection]);
+            console.log(`[迁移] voice_prompts 更新完成`);
+        }
+
         console.log('数据库表初始化完成');
     } finally {
         client.release();

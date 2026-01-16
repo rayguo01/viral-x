@@ -433,9 +433,17 @@ router.post('/:skillId/execute', authenticate, async (req, res) => {
         // 使用 ts-node 执行脚本
         // 将命令合并为字符串，避免 DEP0190 警告
         const fullCommand = ['npx', ...args].join(' ');
+
+        // 获取用户的 Premium 状态并传递给子进程
+        const isPremium = req.user?.isPremium || false;
+        console.log(`[${skillId}] 用户 Premium 状态: ${isPremium}`);
+
         const child = spawn(fullCommand, [], {
             cwd: path.join(__dirname, '../..'),
-            env: { ...process.env },
+            env: {
+                ...process.env,
+                IS_PREMIUM: isPremium ? 'true' : 'false'
+            },
             shell: true
         });
 

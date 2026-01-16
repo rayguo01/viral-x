@@ -307,7 +307,10 @@ Start directly with "# Role: [Name/Archetype based on @${username}]".
    - 🚫 List writing patterns to avoid (e.g., overly formal explanations, complete grammatical sentences)
    - 🚫 List any generic AI tendencies that don't match this person's style
 
-6. **Few-Shot Examples**:
+6. **Content Length Adaptation**:
+   - Add a note: "When a CHARACTER LIMIT is specified (e.g., 250 chars for non-Premium users), adapt the writing style to be more concise while preserving the core personality traits. Prioritize the most impactful phrases and sentence patterns."
+
+7. **Few-Shot Examples**:
    - Include 3-5 of the BEST examples from the input tweets
    - Format as direct quotes that capture the essence of their style
 

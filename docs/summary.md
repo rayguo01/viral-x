@@ -1,6 +1,6 @@
 # Web Claude Code 项目概要
 
-## 当前版本: v2.19.2
+## 当前版本: v2.20.0
 
 ## 项目定位
 
@@ -119,8 +119,25 @@ public/
 | v2.17 | 图片描述与生成图片环节整合 |
 | v2.18 | Token 使用统计系统 |
 | v2.19 | 移动端适配优化 |
+| v2.20 | Premium 用户字数限制系统 |
 
 ## 最近更新
+
+### v2.20.0 - Premium 用户字数限制系统
+- **Twitter Premium 检测**:
+  - OAuth 登录时通过 `verified_type` 字段检测 Premium 会员
+  - `is_premium` 和 `verified_type` 字段保存到用户表
+  - JWT Token 包含 isPremium 状态
+- **非 Premium 用户字数限制**:
+  - 内容生成 (content-writer): 添加 250 字限制规则
+  - 爆款优化 (viral-verification): 添加 250 字限制规则
+  - 写作风格模拟 (voice-mimicker): 生成的 prompt 包含字数适配说明
+- **API 层更新**:
+  - `skills.js` 和 `tasks.js` 通过 `IS_PREMIUM` 环境变量传递状态
+  - Skill 脚本读取环境变量并在 prompt 中添加限制规则
+- **数据库迁移**:
+  - 服务器启动时自动为已有 voice_prompts 添加 "Content Length Adaptation" 章节
+  - 幂等迁移：已包含说明的记录不会重复添加
 
 ### v2.19.2 - 写作风格模仿器页面优化
 - **副标题说明**: 在"我的写作风格模仿器"标题下方添加副标题说明

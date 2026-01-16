@@ -74,6 +74,13 @@ LANGUAGE RULE（极其重要）：
 - 不允许出现任何英文句子或英文表达（专有名词除外，如 AI、Twitter）。
 `;
 
+// 非 Premium 用户的字数限制规则
+const NON_PREMIUM_LIMIT_RULE = `
+CHARACTER LIMIT RULE（极其重要）：
+- 生成的帖子内容必须控制在 250 字以内（包括标点符号和空格）。
+- 这是硬性限制，不可超过。请精简内容，保留核心观点。
+`;
+
 // 默认人格：Defou x Stanley
 const DEFAULT_PERSONA = `
 ================================
@@ -223,28 +230,40 @@ ${JSON_SCHEMA_CUSTOM}
 5. 所有标点符号必须使用英文半角字符（不要使用中文全角标点如：，。；等）
 `;
 
+// 运行选项接口
+interface RunOptions {
+  isPremium?: boolean;
+}
+
 /**
  * 构建系统 prompt，根据是否有自定义语气选择不同的人格和输出格式
+ * @param userInput 用户输入
+ * @param isPremium 是否为 Premium 用户（影响字数限制）
  */
-function buildSystemPrompt(userInput: string): string {
+function buildSystemPrompt(userInput: string, isPremium: boolean = false): string {
   const hasCustomVoice = userInput.includes('===写作风格指南===');
+
+  // 非 Premium 用户添加字数限制
+  const limitRule = isPremium ? '' : NON_PREMIUM_LIMIT_RULE;
 
   if (hasCustomVoice) {
     // 使用自定义语气，单版本输出
     console.log('🎭 检测到自定义写作风格，使用用户指定语气（单版本）');
-    return BASE_RULES + CUSTOM_VOICE_TASK + OUTPUT_FORMAT_CUSTOM;
+    return BASE_RULES + limitRule + CUSTOM_VOICE_TASK + OUTPUT_FORMAT_CUSTOM;
   } else {
     // 使用默认人格，三版本输出
-    return BASE_RULES + DEFAULT_PERSONA + OUTPUT_FORMAT_DEFAULT;
+    return BASE_RULES + limitRule + DEFAULT_PERSONA + OUTPUT_FORMAT_DEFAULT;
   }
 }
 
 /**
  * Call AI to generate content
+ * @param userInput 用户输入
+ * @param isPremium 是否为 Premium 用户
  */
-async function callClaudeCLI(userInput: string): Promise<{ result: string; usage: ClaudeUsage }> {
+async function callClaudeCLI(userInput: string, isPremium: boolean = false): Promise<{ result: string; usage: ClaudeUsage }> {
   // 根据用户输入动态构建系统 prompt
-  const systemPrompt = buildSystemPrompt(userInput);
+  const systemPrompt = buildSystemPrompt(userInput, isPremium);
 
   const fullPrompt = `${systemPrompt}
 
@@ -301,10 +320,17 @@ function parseAndValidateJSON(output: string): any {
 
 /**
  * Main execution function
+ * @param userInput 用户输入素材
+ * @param options 运行选项，包含 isPremium 等
  */
-export async function run(userInput?: string): Promise<{ reportPath: string; report: string; data: any; usage?: ClaudeUsage }> {
+export async function run(userInput?: string, options?: RunOptions): Promise<{ reportPath: string; report: string; data: any; usage?: ClaudeUsage }> {
   try {
+    const isPremium = options?.isPremium ?? false;
     let input = userInput || process.argv.slice(2).join(' ');
+
+    if (!isPremium) {
+      console.log('📏 非 Premium 用户，启用 250 字限制');
+    }
 
     if (input && fs.existsSync(input) && input.endsWith('.txt')) {
       const tmpFile = input;
@@ -320,7 +346,7 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
     console.log(`素材预览: ${input.substring(0, 100)}${input.length > 100 ? '...' : ''}`);
 
     console.log('🤖 正在使用 AI 生成三个版本的内容...');
-    const { result: rawOutput, usage } = await callClaudeCLI(input);
+    const { result: rawOutput, usage } = await callClaudeCLI(input, isPremium);
 
     console.log('📋 正在解析 JSON 输出...');
     const data = parseAndValidateJSON(rawOutput);
@@ -372,7 +398,10 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  run(input).then(result => {
+  // 从环境变量读取 Premium 状态
+  const isPremium = process.env.IS_PREMIUM === 'true';
+
+  run(input, { isPremium }).then(result => {
     console.log('\n📊 创作完成！');
     console.log(`报告已保存到: ${result.reportPath}`);
   }).catch(error => {

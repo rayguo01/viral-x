@@ -13,6 +13,18 @@ if (!fs.existsSync(VERIFIED_DIR)) {
   fs.mkdirSync(VERIFIED_DIR, { recursive: true });
 }
 
+// 运行选项接口
+interface RunOptions {
+  isPremium?: boolean;
+}
+
+// 非 Premium 用户的字数限制规则
+const NON_PREMIUM_LIMIT_RULE = `
+CHARACTER LIMIT RULE（极其重要）：
+- 优化后的帖子内容必须控制在 250 字以内（包括标点符号和空格）。
+- 这是硬性限制，不可超过。请在优化时精简内容，保留核心观点。
+`;
+
 // JSON Schema 定义
 const JSON_SCHEMA = `
 {
@@ -133,9 +145,13 @@ export function getLastUsage(): ClaudeUsage | null {
 
 /**
  * Call AI to verify content
+ * @param userInput 用户输入
+ * @param isPremium 是否为 Premium 用户
  */
-async function callClaudeCLI(userInput: string): Promise<string> {
-  const fullPrompt = `${SYSTEM_PROMPT}
+async function callClaudeCLI(userInput: string, isPremium: boolean = false): Promise<string> {
+  // 非 Premium 用户添加字数限制
+  const limitRule = isPremium ? '' : NON_PREMIUM_LIMIT_RULE;
+  const fullPrompt = `${SYSTEM_PROMPT}${limitRule}
 
 ====================
 待验证内容
@@ -190,11 +206,18 @@ function parseAndValidateJSON(output: string): any {
 
 /**
  * Main execution function
+ * @param userInput 用户输入内容
+ * @param options 运行选项，包含 isPremium 等
  */
-export async function run(userInput?: string): Promise<{ reportPath: string; report: string; data: any; usage?: ClaudeUsage }> {
+export async function run(userInput?: string, options?: RunOptions): Promise<{ reportPath: string; report: string; data: any; usage?: ClaudeUsage }> {
   try {
+    const isPremium = options?.isPremium ?? false;
     // 如果没有传入参数，从命令行参数获取
     let input = userInput || process.argv.slice(2).join(' ');
+
+    if (!isPremium) {
+      console.log('📏 非 Premium 用户，启用 250 字限制');
+    }
 
     // 如果参数是文件路径，则从文件读取内容
     if (input && fs.existsSync(input) && input.endsWith('.txt')) {
@@ -213,7 +236,7 @@ export async function run(userInput?: string): Promise<{ reportPath: string; rep
 
     // 调用 AI 验证内容
     console.log('🤖 正在使用 AI 进行爆款要素优化...');
-    const rawOutput = await callClaudeCLI(input);
+    const rawOutput = await callClaudeCLI(input, isPremium);
 
     console.log('📋 正在解析 JSON 输出...');
     const data = parseAndValidateJSON(rawOutput);
@@ -265,7 +288,10 @@ if (require.main === module) {
     process.exit(1);
   }
 
-  run(input).then(result => {
+  // 从环境变量读取 Premium 状态
+  const isPremium = process.env.IS_PREMIUM === 'true';
+
+  run(input, { isPremium }).then(result => {
     console.log('\n📊 验证完成！');
     console.log(`报告已保存到: ${result.reportPath}`);
   }).catch(error => {

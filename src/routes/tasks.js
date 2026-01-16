@@ -701,9 +701,17 @@ router.post('/:id/execute-step', authenticate, async (req, res) => {
         // 执行脚本 - Windows 兼容
         // 将命令和参数合并为字符串，避免 DEP0190 警告
         const fullCommand = ['npx', ...args].join(' ');
+
+        // 获取用户的 Premium 状态并传递给子进程
+        const isPremium = req.user?.isPremium || false;
+        console.log(`[Skill ${skillId}] 用户 Premium 状态: ${isPremium}`);
+
         const child = spawn(fullCommand, [], {
             cwd: path.join(__dirname, '../..'),
-            env: { ...process.env },
+            env: {
+                ...process.env,
+                IS_PREMIUM: isPremium ? 'true' : 'false'
+            },
             shell: true
         });
 
