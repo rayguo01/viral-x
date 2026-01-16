@@ -366,6 +366,7 @@ class VoiceMimickerPage {
                             创建写作风格模仿器
                         </button>
                     </div>
+                    <p class="section-subtitle">创建自己喜欢的写作风格模仿器，点击"开放市场"按钮将该模仿器提供给别人使用，获取收益，用的越多，收益越多。</p>
                     <div class="my-prompts-grid" id="my-prompts-grid">
                         <div class="loading-state">
                             <div class="loading-spinner"></div>

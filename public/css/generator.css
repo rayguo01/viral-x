@@ -4811,6 +4811,13 @@
     color: var(--text-primary);
 }
 
+.section-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: -8px 0 16px 0;
+    line-height: 1.5;
+}
+
 .my-prompts-grid,
 .subscribed-grid {
     display: grid;
