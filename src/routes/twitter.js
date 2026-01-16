@@ -270,6 +270,11 @@ async function handleTwitterLogin(twitterUser, accessToken, refreshToken, expire
 
 // 保存 Twitter 凭证（绑定模式）
 async function saveTwitterCredentials(userId, twitterUser, accessToken, refreshToken, expiresAt, isPremium) {
+    console.log('[绑定] 保存凭证 - 用户ID:', userId);
+    console.log('[绑定] Twitter用户:', twitterUser.username);
+    console.log('[绑定] Token前20字符:', accessToken?.substring(0, 20) + '...');
+    console.log('[绑定] 过期时间:', expiresAt);
+
     // 更新用户的 twitter_id 和 Premium 状态
     await pool.query(
         'UPDATE users SET twitter_id = $1, avatar_url = COALESCE(avatar_url, $2), is_premium = $3, verified_type = $4 WHERE id = $5',
@@ -347,16 +352,21 @@ router.post('/tweet', authMiddleware, async (req, res) => {
 
     try {
         // 获取用户的 access token
+        console.log('[发推] 用户ID:', req.user.userId);
         const result = await pool.query(
-            'SELECT access_token, refresh_token, token_expires_at FROM twitter_credentials WHERE user_id = $1',
+            'SELECT access_token, refresh_token, token_expires_at, twitter_username FROM twitter_credentials WHERE user_id = $1',
             [req.user.userId]
         );
 
         if (result.rows.length === 0) {
+            console.log('[发推] 未找到 Twitter 凭证');
             return res.status(401).json({ error: '未连接 Twitter 账号' });
         }
 
-        let { access_token, refresh_token, token_expires_at } = result.rows[0];
+        let { access_token, refresh_token, token_expires_at, twitter_username } = result.rows[0];
+        console.log('[发推] Twitter 用户:', twitter_username);
+        console.log('[发推] Token 前20字符:', access_token?.substring(0, 20) + '...');
+        console.log('[发推] Token 过期时间:', token_expires_at);
 
         // 检查 token 是否过期，尝试刷新
         if (token_expires_at && new Date(token_expires_at) < new Date()) {
