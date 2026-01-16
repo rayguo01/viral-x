@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/anthropics/claude-code/pulls)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/rayguo17/viral-x/pulls)
 
 [在线体验](https://viral-x.app) · [English](#english)
 
@@ -19,7 +19,7 @@
 ## 功能特性
 
 - **实时热点追踪** - 自动抓取 X 平台和国内热点，每小时更新
-- **AI 内容生成** - 基于 Defou x Stanley 方法论，生成高质量帖子
+- **AI 内容生成** - 基于方法论，生成高质量帖子
 - **爆款优化** - AI 评分和优化建议，提升病毒传播潜力
 - **写作风格模仿** - 分析大V推文风格，一键模仿生成
 - **AI 智能配图** - Gemini 生成与内容匹配的配图
@@ -35,9 +35,14 @@
 
 ### 截图预览
 
-| 热点追踪 | 内容生成 | 爆款优化 |
-|:---:|:---:|:---:|
-| 自动抓取实时热点 | AI 生成帖子内容 | 评分和优化建议 |
+#### 落地页
+![落地页](docs/screenshots/landing.png)
+
+#### 热点追踪
+![热点追踪](docs/screenshots/trends.png)
+
+#### 内容生成 & 风格选择
+![内容生成](docs/screenshots/content.png)
 
 ## 快速开始
 
@@ -51,7 +56,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/anthropics/claude-code.git
+git clone https://github.com/rayguo17/viral-x.git
 cd web-cc
 
 # 安装依赖
@@ -154,15 +159,6 @@ docker run -p 3000:3000 --env-file .env viral-x
 4. 推送到分支 (`git push origin feature/amazing-feature`)
 5. 提交 Pull Request
 
-## 支持项目
-
-如果这个项目对你有帮助，欢迎支持：
-
-<a href="https://www.buymeacoffee.com/rayguo" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="40"></a>
-
-- [GitHub Sponsors](https://github.com/sponsors/rayguo17)
-- [爱发电](https://afdian.com/a/rayguo)
-
 ## 许可证
 
 [MIT License](LICENSE)
@@ -180,7 +176,7 @@ From trend tracking to one-click publishing, create your first viral post in 10 
 ## Features
 
 - **Real-time Trend Tracking** - Auto-fetch trends from X and Chinese platforms, hourly updates
-- **AI Content Generation** - High-quality posts based on Defou x Stanley methodology
+- **AI Content Generation** - High-quality posts based on methodology
 - **Viral Optimization** - AI scoring and suggestions to boost viral potential
 - **Writing Style Mimicry** - Analyze influencer styles and generate matching content
 - **AI Image Generation** - Gemini-powered images matching your content
@@ -190,8 +186,8 @@ From trend tracking to one-click publishing, create your first viral post in 10 
 
 ```bash
 # Clone
-git clone https://github.com/anthropics/claude-code.git
-cd web-cc
+git clone https://github.com/rayguo17/viral-x.git
+cd viral-x
 
 # Install
 npm install
