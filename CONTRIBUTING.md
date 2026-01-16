@@ -23,8 +23,8 @@ Thank you for your interest in Viral-X! We welcome contributions of all kinds.
 
 1. **Fork 仓库**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/web-cc.git
-   cd web-cc
+   git clone https://github.com/rayguo01/viral-x.git
+   cd viral-x
    ```
 
 2. **创建分支**
@@ -117,6 +117,6 @@ web-cc/
 ## 联系方式 | Contact
 
 - GitHub Issues: 技术问题和功能建议
-- X/Twitter: [@anthropics](https://x.com/anthropics)
+- X/Twitter: [@rayguo001](https://x.com/rayguo001)
 
 感谢你的贡献！
