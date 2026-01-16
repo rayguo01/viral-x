@@ -313,10 +313,21 @@ class ContentPage {
         const existingModal = document.querySelector('.voice-detail-modal');
         if (existingModal) existingModal.remove();
 
-        // 解析 traits 为列表
+        // 解析 traits 为列表（支持 JSON 数组格式）
         let traitsHtml = '';
         if (data.traits) {
-            const traits = data.traits.split(',').map(t => t.trim()).filter(t => t);
+            let traits = [];
+            try {
+                // 尝试解析 JSON 数组
+                traits = JSON.parse(data.traits);
+                if (!Array.isArray(traits)) {
+                    traits = [traits];
+                }
+            } catch (e) {
+                // 如果不是 JSON，按逗号分割
+                traits = data.traits.split(',').map(t => t.trim());
+            }
+            traits = traits.filter(t => t);
             if (traits.length > 0) {
                 traitsHtml = `
                     <div class="voice-detail-section">
