@@ -171,15 +171,15 @@ router.get('/callback', async (req, res) => {
             // 登录模式：创建或查找用户，返回 JWT
             const result = await handleTwitterLogin(twitterUser, access_token, refresh_token, expiresAt, isPremium);
 
-            // 生成 JWT token（包含 Premium 状态）
+            // 生成 JWT token（包含 Premium 和 Admin 状态）
             const token = jwt.sign(
-                { userId: result.userId, username: result.username, isPremium: result.isPremium },
+                { userId: result.userId, username: result.username, isPremium: result.isPremium, isAdmin: result.isAdmin },
                 process.env.JWT_SECRET,
                 { expiresIn: '7d' }
             );
 
-            // 重定向到前端，带上 token 和 Premium 状态
-            res.redirect(`/login.html?twitter_login=success&token=${encodeURIComponent(token)}&username=${encodeURIComponent(result.username)}&is_premium=${result.isPremium}`);
+            // 重定向到前端，带上 token、Premium 和 Admin 状态
+            res.redirect(`/login.html?twitter_login=success&token=${encodeURIComponent(token)}&username=${encodeURIComponent(result.username)}&is_premium=${result.isPremium}&is_admin=${result.isAdmin}`);
         } else {
             // 绑定模式：保存 token 到已登录用户
             await saveTwitterCredentials(stateData.userId, twitterUser, access_token, refresh_token, expiresAt, isPremium);
@@ -200,16 +200,17 @@ async function handleTwitterLogin(twitterUser, accessToken, refreshToken, expire
 
         // 查找是否已有该 Twitter 用户
         let result = await client.query(
-            'SELECT id, username, is_premium FROM users WHERE twitter_id = $1',
+            'SELECT id, username, is_premium, is_admin FROM users WHERE twitter_id = $1',
             [twitterUser.id]
         );
 
-        let userId, username, userIsPremium;
+        let userId, username, userIsPremium, userIsAdmin;
 
         if (result.rows.length > 0) {
             // 用户已存在，更新信息
             userId = result.rows[0].id;
             username = result.rows[0].username;
+            userIsAdmin = result.rows[0].is_admin || false;
 
             // 更新头像和 Premium 状态
             await client.query(
@@ -220,6 +221,7 @@ async function handleTwitterLogin(twitterUser, accessToken, refreshToken, expire
         } else {
             // 创建新用户
             username = twitterUser.username;
+            userIsAdmin = false; // 新用户默认非管理员
 
             // 检查用户名是否已被占用
             const existingUser = await client.query(
@@ -259,7 +261,7 @@ async function handleTwitterLogin(twitterUser, accessToken, refreshToken, expire
 
         await client.query('COMMIT');
 
-        return { userId, username, isPremium: userIsPremium };
+        return { userId, username, isPremium: userIsPremium, isAdmin: userIsAdmin };
     } catch (err) {
         await client.query('ROLLBACK');
         throw err;

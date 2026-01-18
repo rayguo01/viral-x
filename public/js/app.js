@@ -35,12 +35,15 @@ class App {
         if (urlParams.get('twitter_login') === 'success') {
             const token = urlParams.get('token');
             const username = urlParams.get('username');
+            const isAdmin = urlParams.get('is_admin') === 'true';
 
             if (token && username) {
                 this.token = token;
                 this.username = username;
+                this.isAdmin = isAdmin;
                 localStorage.setItem('token', token);
                 localStorage.setItem('username', username);
+                localStorage.setItem('isAdmin', isAdmin ? 'true' : 'false');
 
                 // 清除 URL 参数
                 window.history.replaceState({}, document.title, '/');
