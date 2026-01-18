@@ -1,6 +1,6 @@
 # Web Claude Code 项目概要
 
-## 当前版本: v2.20.0
+## 当前版本: v2.22.0
 
 ## 项目定位
 
@@ -120,8 +120,73 @@ public/
 | v2.18 | Token 使用统计系统 |
 | v2.19 | 移动端适配优化 |
 | v2.20 | Premium 用户字数限制系统 |
+| v2.21 | 评论涨粉助手 |
+| v2.22 | KOL 权重系统 |
 
 ## 最近更新
+
+### v2.22.0 - KOL 权重系统 + 用户 OAuth Token 评论
+- **权重机制**: 每个 KOL 初始权重为 100
+- **自动降权**: 帖子不满足评论条件时，该 KOL 权重自动 -1
+- **评论条件**: 帖子前 5 条评论中需有发布超过 10 分钟且浏览量 >= 1000 的评论
+- **数据库变更**:
+  - `comment_kol_list` 表新增 `weight` 字段（默认值 100）
+  - `comment_settings` 表新增 `comment_user_id` 字段（指定评论账号）
+- **服务层方法**:
+  - `updateKolWeight(kolId, delta)` - 按 ID 更新权重
+  - `updateKolWeightByUsername(username, region, delta)` - 按用户名更新权重
+  - `getKolWeight(username, region)` - 获取权重
+  - `resetKolWeight(kolId)` - 重置权重为 100
+  - `getUserTwitterCredentials(userId)` - 获取用户 Twitter 凭证
+  - `updateUserTwitterToken()` - 更新用户 Token
+  - `getTwitterConnectedUsers()` - 获取已绑定 Twitter 的用户列表
+- **用户 OAuth Token 评论**:
+  - 管理员可选择一个已绑定 Twitter 的用户作为评论账号
+  - 自动评论使用该用户的 OAuth Token（通过 Twitter 官方 API）
+  - Token 过期前自动刷新（使用 refresh_token）
+  - 用户不需要保持页面打开，后台定时任务自动执行
+- **API 端点**:
+  - `PUT /api/comment-assistant/kol/:id/weight/reset` - 重置权重
+  - `GET /api/comment-assistant/twitter-users` - 获取可用的评论账号列表
+- **前端展示**:
+  - 大V 列表显示权重值（颜色：>=80 绿色，>=50 橙色，<50 红色）
+  - 权重 < 100 时显示"重置"按钮
+  - 仪表盘显示当前评论账号
+  - 设置中可选择评论账号
+  - 未设置评论账号时显示警告提示
+
+### v2.21.0 - 评论涨粉助手
+- **功能定位**: 自动追踪大V帖子，抢占高潜力评论位，提升账号曝光
+- **核心逻辑**:
+  - 双区域（日区/美区）按时间段自动轮换
+  - 12 组大V轮换策略，每组约 10 个 KOL
+  - 筛选最近 4 小时、评论数 < 20、高浏览量潜力帖子
+  - AI 生成多风格评论（赞同/提问/补充/引流）
+  - 点赞 + 延迟 + 评论的自然交互模式
+- **后端服务**:
+  - `commentAssistantDb.js` - 大V管理、评论历史、设置、费用追踪
+  - `twitterApiClient.js` - Twitter API 调用带费用追踪
+  - `commentGenerator.js` - AI 评论生成（支持日/英语）
+  - `commentAssistantJob.js` - 30 分钟定时任务
+- **API 路由** (`/api/comment-assistant`):
+  - 设置管理（开关、每日上限、月度预算）
+  - 大V管理（添加、删除、批量导入）
+  - 评论历史和收件箱
+  - 费用统计（按操作/日期/区域）
+  - 手动触发（调试用）
+- **数据库表**:
+  - `comment_kol_list` - 大V列表（区域+分组）
+  - `comment_history` - 评论历史
+  - `comment_settings` - 系统设置
+  - `comment_inbox` - 收件箱通知
+  - `twitterapi_usage` - API 费用追踪
+- **前端页面**:
+  - 仪表盘：状态卡片、设置、调试
+  - 大V管理：分区域分组管理
+  - 评论历史：查看已发布评论
+  - 费用统计：按操作/日期/区域统计
+- **权限控制**: 仅管理员可见（侧边栏动态渲染）
+- **定时任务**: 每 30 分钟执行一次，集成到 scheduler.js
 
 ### v2.20.0 - Premium 用户字数限制系统
 - **Twitter Premium 检测**:

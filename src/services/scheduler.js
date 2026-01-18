@@ -909,13 +909,31 @@ class Scheduler {
     }
 
     /**
+     * 检查是否启用抓取功能
+     */
+    isFetchEnabled() {
+        const enabled = process.env.FETCH_ENABLED !== 'false';
+        return enabled;
+    }
+
+    /**
      * 启动定时任务
      * cron 格式: 分 时 日 月 星期
      * "1 * * * *" = 每小时的第1分钟
      */
     start() {
+        // 检查是否启用抓取
+        if (!this.isFetchEnabled()) {
+            console.log('[调度器] 抓取功能已禁用 (FETCH_ENABLED=false)，跳过定时任务');
+            return;
+        }
+
         // 每小时第1分钟执行
         const job = cron.schedule('1 * * * *', () => {
+            if (!this.isFetchEnabled()) {
+                console.log('[调度器] 抓取功能已禁用，跳过本次执行');
+                return;
+            }
             this.fetchAllTrends();
         }, {
             scheduled: true,
@@ -969,5 +987,43 @@ class Scheduler {
 
 // 单例
 const scheduler = new Scheduler();
+
+// ============ 评论涨粉助手定时任务 ============
+// 每 30 分钟执行一次（独立于 FETCH_ENABLED 配置）
+// 使用 setInterval 代替 cron，更可靠
+const commentAssistantJob = require('./commentAssistantJob');
+
+let commentAssistantRunning = false;
+
+async function runCommentAssistant(source = 'interval') {
+    if (commentAssistantRunning) {
+        console.log(`[Scheduler] 评论助手任务正在运行中，跳过 (来源: ${source})`);
+        return;
+    }
+
+    commentAssistantRunning = true;
+    console.log(`[Scheduler] 执行评论助手任务 (来源: ${source})...`);
+    try {
+        await commentAssistantJob.run();
+    } catch (error) {
+        console.error('[Scheduler] 评论助手任务失败:', error);
+    } finally {
+        commentAssistantRunning = false;
+    }
+}
+
+// 每 30 分钟执行一次
+const COMMENT_ASSISTANT_INTERVAL = 30 * 60 * 1000; // 30 分钟
+const commentAssistantTimer = setInterval(() => runCommentAssistant('定时'), COMMENT_ASSISTANT_INTERVAL);
+
+// 保存引用防止被回收
+scheduler.jobs.set('comment-assistant', commentAssistantTimer);
+
+// 启动后 1 分钟执行第一次
+setTimeout(() => {
+    runCommentAssistant('启动首次');
+}, 60000);
+
+console.log('[调度器] 评论涨粉助手定时任务已启动（每30分钟执行）');
 
 module.exports = scheduler;

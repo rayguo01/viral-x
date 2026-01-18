@@ -380,6 +380,122 @@ async function initDatabase() {
             UPDATE users SET is_admin = TRUE WHERE username = 'rayguo' AND (is_admin IS NULL OR is_admin = FALSE)
         `);
 
+        // ============ 评论涨粉助手表 ============
+
+        // 大V列表（系统级配置）
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS comment_kol_list (
+                id SERIAL PRIMARY KEY,
+                region VARCHAR(2) NOT NULL,
+                kol_username VARCHAR(50) NOT NULL,
+                kol_display_name VARCHAR(100),
+                group_index INTEGER NOT NULL,
+                weight INTEGER DEFAULT 100,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(region, kol_username)
+            )
+        `);
+
+        // 添加 weight 列（如果不存在）
+        await client.query(`
+            ALTER TABLE comment_kol_list ADD COLUMN IF NOT EXISTS weight INTEGER DEFAULT 100
+        `);
+
+        // 评论历史
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS comment_history (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                region VARCHAR(2) NOT NULL,
+                tweet_id VARCHAR(50) NOT NULL,
+                tweet_url TEXT NOT NULL,
+                tweet_author VARCHAR(50) NOT NULL,
+                tweet_content TEXT,
+                comment_content TEXT NOT NULL,
+                comment_style VARCHAR(20) NOT NULL,
+                comment_tweet_id VARCHAR(50),
+                published_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 评论设置（系统级，单行配置）
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS comment_settings (
+                id SERIAL PRIMARY KEY,
+                daily_limit INTEGER DEFAULT 50,
+                auto_enabled BOOLEAN DEFAULT false,
+                notify_frequency VARCHAR(20) DEFAULT 'daily',
+                ja_group_index INTEGER DEFAULT 0,
+                en_group_index INTEGER DEFAULT 0,
+                monthly_budget DECIMAL(10,2) DEFAULT 30.00,
+                comment_user_id INTEGER REFERENCES users(id),
+                last_run_at TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 添加 comment_user_id 列（如果不存在）
+        await client.query(`
+            ALTER TABLE comment_settings ADD COLUMN IF NOT EXISTS comment_user_id INTEGER REFERENCES users(id)
+        `);
+
+        // 收件箱通知
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS comment_inbox (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                comment_history_id INTEGER NOT NULL REFERENCES comment_history(id),
+                is_read BOOLEAN DEFAULT false,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // twitterapi.io 费用统计
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS twitterapi_usage (
+                id SERIAL PRIMARY KEY,
+                api_endpoint VARCHAR(100) NOT NULL,
+                api_action VARCHAR(30) NOT NULL,
+                request_count INTEGER DEFAULT 1,
+                items_count INTEGER DEFAULT 0,
+                credits_used DECIMAL(10,4),
+                cost_usd DECIMAL(10,6),
+                region VARCHAR(2),
+                related_tweet_id VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // 插入默认评论设置
+        await client.query(`
+            INSERT INTO comment_settings (id, daily_limit, auto_enabled)
+            VALUES (1, 50, false)
+            ON CONFLICT (id) DO NOTHING
+        `);
+
+        // 评论助手索引
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_comment_kol_region_group ON comment_kol_list(region, group_index)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_comment_history_user ON comment_history(user_id)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_comment_history_tweet ON comment_history(tweet_id)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_comment_history_date ON comment_history(published_at)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_comment_inbox_user ON comment_inbox(user_id, is_read)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_twitterapi_usage_date ON twitterapi_usage(created_at)
+        `);
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_twitterapi_usage_action ON twitterapi_usage(api_action)
+        `);
+
         // 迁移：为已有的 voice_prompts 添加 250 字限制说明
         const characterLimitSection = `
 

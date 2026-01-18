@@ -14,6 +14,7 @@ const toolsRoutes = require('./routes/tools');
 const statsRoutes = require('./routes/stats');
 const adminRoutes = require('./routes/admin');
 const invitationsRoutes = require('./routes/invitations');
+const commentAssistantRoutes = require('./routes/comment-assistant');
 const { setupWebSocket } = require('./websocket/handler');
 const scheduler = require('./services/scheduler');
 
@@ -59,6 +60,7 @@ app.use('/api/tools', toolsRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/invitations', invitationsRoutes);
+app.use('/api/comment-assistant', commentAssistantRoutes);
 
 // 静态文件访问 - outputs 目录（用于图片访问）
 app.use('/outputs', express.static(path.join(__dirname, '../outputs')));

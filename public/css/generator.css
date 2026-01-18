@@ -6127,3 +6127,137 @@
 .animate-slide-up {
     animation: slideUp 0.5s ease forwards;
 }
+
+/* ===================================
+   评论涨粉助手页面
+   =================================== */
+.comment-assistant-page {
+    padding: 0 0 40px 0;
+}
+
+.comment-assistant-page .page-header {
+    margin-bottom: 24px;
+}
+
+/* Tab 按钮 */
+.comment-assistant-page .tab-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.comment-assistant-page .tab-btn:hover {
+    background: rgba(15, 23, 42, 0.05);
+}
+
+.comment-assistant-page .tab-btn.active {
+    background: white;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    font-weight: 500;
+}
+
+/* 开关 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #f59e0b;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* 区域标签 */
+.region-ja {
+    color: #c62828 !important;
+}
+
+.region-en {
+    color: #1565c0 !important;
+}
+
+/* 预算进度条 */
+.budget-bar {
+    background: #e5e7eb;
+}
+
+.budget-fill {
+    background: linear-gradient(90deg, #f59e0b, #ea580c);
+}
+
+/* 弹窗 */
+.comment-assistant-page .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.comment-assistant-page .modal-content {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    min-width: 400px;
+    max-width: 90vw;
+}
+
+/* 表格 */
+.comment-assistant-page .usage-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.comment-assistant-page .usage-table th,
+.comment-assistant-page .usage-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.comment-assistant-page .usage-table th {
+    background: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
