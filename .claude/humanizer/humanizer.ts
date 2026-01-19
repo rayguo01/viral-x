@@ -191,7 +191,49 @@ function parseAndValidateJSON(output: string): any {
     throw new Error(result.error || 'JSON 解析失败');
   }
 
-  return result.data;
+  // 将简化格式转换为与爆款优化一致的完整格式
+  return convertToFullFormat(result.data);
+}
+
+/**
+ * 将简化的 JSON 格式转换为前端期望的完整格式
+ * 简化格式用于减少 LLM 输出 token，完整格式用于前端显示
+ */
+function convertToFullFormat(data: any): any {
+  // 1. scoreCard: 添加空的 comment 字段
+  if (data.scoreCard && Array.isArray(data.scoreCard)) {
+    data.scoreCard = data.scoreCard.map((item: any) => ({
+      factor: item.factor,
+      score: item.score,
+      comment: item.comment || ''
+    }));
+  }
+
+  // 2. humanScore: 从直接数字转换为对象格式
+  if (data.humanScore && typeof data.humanScore === 'object') {
+    const humanScoreKeys = ['directness', 'rhythm', 'trust', 'authenticity', 'conciseness'];
+    for (const key of humanScoreKeys) {
+      if (typeof data.humanScore[key] === 'number') {
+        data.humanScore[key] = { score: data.humanScore[key], comment: '' };
+      }
+    }
+  }
+
+  // 3. aiPatternsFound: 移到 analysis 下
+  if (!data.analysis) {
+    data.analysis = { strengths: [], weaknesses: [], aiPatternsFound: [] };
+  }
+  if (Array.isArray(data.aiPatternsFound)) {
+    data.analysis.aiPatternsFound = data.aiPatternsFound;
+    delete data.aiPatternsFound;
+  }
+
+  // 4. 确保 strategies 存在
+  if (!data.strategies) {
+    data.strategies = {};
+  }
+
+  return data;
 }
 
 /**
