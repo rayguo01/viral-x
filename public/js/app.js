@@ -6,6 +6,7 @@ class App {
         this.token = localStorage.getItem('token');
         this.username = localStorage.getItem('username');
         this.isAdmin = localStorage.getItem('isAdmin') === 'true';
+        this.canUseCommentAssistant = localStorage.getItem('canUseCommentAssistant') === 'true';
         this.currentNav = 'writing'; // 当前导航页
         this.init();
     }
@@ -246,9 +247,11 @@ class App {
             this.token = data.token;
             this.username = data.username;
             this.isAdmin = data.isAdmin || false;
+            this.canUseCommentAssistant = data.canUseCommentAssistant || false;
             localStorage.setItem('token', data.token);
             localStorage.setItem('username', data.username);
             localStorage.setItem('isAdmin', data.isAdmin ? 'true' : 'false');
+            localStorage.setItem('canUseCommentAssistant', data.canUseCommentAssistant ? 'true' : 'false');
 
             // 更新 postGenerator 的 token
             if (window.postGenerator) {
@@ -311,9 +314,11 @@ class App {
         this.token = null;
         this.username = null;
         this.isAdmin = false;
+        this.canUseCommentAssistant = false;
         localStorage.removeItem('token');
         localStorage.removeItem('username');
         localStorage.removeItem('isAdmin');
+        localStorage.removeItem('canUseCommentAssistant');
 
         // 重置生成器状态
         if (window.generatorState) {
@@ -407,27 +412,56 @@ class App {
         }
     }
 
-    // 渲染管理员菜单
+    // 渲染评论助手菜单（需要有权限）
     renderAdminMenu() {
-        if (!this.isAdmin) return;
-
-        const sidebarNav = document.querySelector('.sidebar-nav nav');
-        if (!sidebarNav) return;
+        // 需要 canUseCommentAssistant 权限才能看到评论助手（管理员也需要单独设置）
+        if (!this.canUseCommentAssistant) return;
 
         // 检查是否已经添加过
         if (document.querySelector('[data-nav="comment-assistant"]')) return;
 
-        // 添加评论助手入口
-        const adminItem = document.createElement('a');
-        adminItem.className = 'sidebar-item group flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-white/40 transition-all duration-200';
-        adminItem.href = '#';
-        adminItem.dataset.nav = 'comment-assistant';
-        adminItem.style.color = '#64748b';
-        adminItem.innerHTML = `
-            <span class="material-icons-outlined text-slate-400 group-hover:text-slate-600">smart_toy</span>
-            <span>评论助手</span>
-        `;
-        sidebarNav.appendChild(adminItem);
+        // PC端：添加侧边栏入口
+        const sidebarNav = document.querySelector('.sidebar-nav nav');
+        if (sidebarNav) {
+            const adminItem = document.createElement('a');
+            adminItem.className = 'sidebar-item group flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-white/40 transition-all duration-200';
+            adminItem.href = '#';
+            adminItem.dataset.nav = 'comment-assistant';
+            adminItem.style.color = '#64748b';
+            adminItem.innerHTML = `
+                <span class="material-icons-outlined text-slate-400 group-hover:text-slate-600">smart_toy</span>
+                <span>评论助手</span>
+            `;
+            sidebarNav.appendChild(adminItem);
+
+            // 绑定点击事件
+            adminItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigateTo('comment-assistant');
+                this.renderCommentAssistantPage();
+            });
+        }
+
+        // 手机端：添加底部导航入口
+        const bottomNav = document.querySelector('.bottom-nav');
+        if (bottomNav) {
+            const mobileItem = document.createElement('a');
+            mobileItem.className = 'bottom-nav-item flex flex-col items-center space-y-1 py-2 px-4 rounded-xl text-slate-500 hover:text-slate-900 transition-colors';
+            mobileItem.href = '#';
+            mobileItem.dataset.nav = 'comment-assistant';
+            mobileItem.innerHTML = `
+                <span class="material-icons-outlined">smart_toy</span>
+                <span class="text-xs">评论</span>
+            `;
+            bottomNav.appendChild(mobileItem);
+
+            // 绑定点击事件
+            mobileItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigateTo('comment-assistant');
+                this.renderCommentAssistantPage();
+            });
+        }
 
         // 添加对应的页面容器
         const mainContent = document.querySelector('.main-content');
@@ -442,16 +476,9 @@ class App {
             `;
             mainContent.appendChild(page);
         }
-
-        // 绑定点击事件
-        adminItem.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.navigateTo('comment-assistant');
-            this.renderCommentAssistantPage();
-        });
     }
 
-    // 渲染评论助手页面
+    // 渲染评论助手页面（只显示评论历史）
     async renderCommentAssistantPage() {
         const container = document.getElementById('comment-assistant-content');
         if (!container) return;
@@ -465,6 +492,7 @@ class App {
             return;
         }
 
+        // 普通用户界面只显示评论历史
         const page = new CommentAssistantPage();
         container.innerHTML = await page.render();
         await page.afterRender();
