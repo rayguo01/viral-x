@@ -119,7 +119,7 @@ class CommentAssistantJob {
                 return { completed: true, commented: 0, reason: 'no_candidates' };
             }
 
-            // 8. 如果手动评论启用，为手动用户生成待评论记录（轮流分配，避免重复评论）
+            // 8. 如果手动评论启用，为每个用户的每条推文生成待评论记录（内容独立生成）
             let pendingCreated = 0;
             if (manualEnabled) {
                 // 获取手动用户列表（有权限但不是自动发布账号）
@@ -129,38 +129,37 @@ class CommentAssistantJob {
                 console.log(`[CommentAssistant] 手动用户数: ${manualUsers.length}`);
 
                 if (manualUsers.length > 0) {
-                    // 轮流分配推文给用户（每条推文只分配给1个用户）
-                    for (let i = 0; i < candidateTweets.length; i++) {
-                        const tweet = candidateTweets[i];
-                        const user = manualUsers[i % manualUsers.length]; // 轮流分配
+                    // 每条推文为每个用户都生成一条独立的评论记录
+                    for (const tweet of candidateTweets) {
+                        for (const user of manualUsers) {
+                            // 检查该用户是否已有这个帖子的记录
+                            const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
+                            if (hasRecord) {
+                                console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
+                                continue;
+                            }
 
-                        // 检查该用户是否已有这个帖子的记录
-                        const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
-                        if (hasRecord) {
-                            console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
-                            continue;
+                            // 为该用户独立生成评论内容
+                            const generated = await commentGenerator.generate(tweet, region);
+
+                            // 保存待评论记录
+                            await commentAssistantDb.saveComment({
+                                userId: user.id,
+                                region,
+                                tweetId: tweet.id,
+                                tweetUrl: tweet.url,
+                                tweetAuthor: tweet.author,
+                                tweetContent: tweet.content?.substring(0, 200),
+                                commentContent: generated.content,
+                                commentStyle: generated.style,
+                                commentTweetId: null,
+                                status: 'pending',
+                                isAuto: false
+                            });
+
+                            pendingCreated++;
+                            console.log(`[CommentAssistant] 为用户 ${user.username} 生成: ${tweet.author} - ${tweet.id}`);
                         }
-
-                        // 为该用户生成评论内容
-                        const generated = await commentGenerator.generate(tweet, region);
-
-                        // 保存待评论记录
-                        await commentAssistantDb.saveComment({
-                            userId: user.id,
-                            region,
-                            tweetId: tweet.id,
-                            tweetUrl: tweet.url,
-                            tweetAuthor: tweet.author,
-                            tweetContent: tweet.content?.substring(0, 200),
-                            commentContent: generated.content,
-                            commentStyle: generated.style,
-                            commentTweetId: null,
-                            status: 'pending',
-                            isAuto: false
-                        });
-
-                        pendingCreated++;
-                        console.log(`[CommentAssistant] 分配给用户 ${user.username}: ${tweet.author} - ${tweet.id}`);
                     }
                 }
                 console.log(`[CommentAssistant] 共创建 ${pendingCreated} 条待评论记录`);
@@ -534,36 +533,35 @@ class CommentAssistantJob {
                 return { completed: true, pendingCreated: 0, reason: 'no_manual_users' };
             }
 
-            // 轮流分配推文给用户（每条推文只分配给1个用户，避免重复评论）
+            // 每条推文为每个用户都生成一条独立的评论记录
             let pendingCreated = 0;
-            for (let i = 0; i < candidateTweets.length; i++) {
-                const tweet = candidateTweets[i];
-                const user = manualUsers[i % manualUsers.length]; // 轮流分配
+            for (const tweet of candidateTweets) {
+                for (const user of manualUsers) {
+                    const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
+                    if (hasRecord) {
+                        console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
+                        continue;
+                    }
 
-                const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
-                if (hasRecord) {
-                    console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
-                    continue;
+                    const generated = await commentGenerator.generate(tweet, region);
+
+                    await commentAssistantDb.saveComment({
+                        userId: user.id,
+                        region,
+                        tweetId: tweet.id,
+                        tweetUrl: tweet.url,
+                        tweetAuthor: tweet.author,
+                        tweetContent: tweet.content?.substring(0, 200),
+                        commentContent: generated.content,
+                        commentStyle: generated.style,
+                        commentTweetId: null,
+                        status: 'pending',
+                        isAuto: false
+                    });
+
+                    pendingCreated++;
+                    console.log(`[CommentAssistant] 为用户 ${user.username} 生成: ${tweet.author} - ${tweet.id}`);
                 }
-
-                const generated = await commentGenerator.generate(tweet, region);
-
-                await commentAssistantDb.saveComment({
-                    userId: user.id,
-                    region,
-                    tweetId: tweet.id,
-                    tweetUrl: tweet.url,
-                    tweetAuthor: tweet.author,
-                    tweetContent: tweet.content?.substring(0, 200),
-                    commentContent: generated.content,
-                    commentStyle: generated.style,
-                    commentTweetId: null,
-                    status: 'pending',
-                    isAuto: false
-                });
-
-                pendingCreated++;
-                console.log(`[CommentAssistant] 分配给用户 ${user.username}: ${tweet.author} - ${tweet.id}`);
             }
 
             console.log(`[CommentAssistant] 手动评论生成完成: ${pendingCreated} 条`);
