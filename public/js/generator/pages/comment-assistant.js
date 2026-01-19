@@ -726,8 +726,8 @@ class CommentAssistantPage {
             </div>
 
             <!-- 详情弹窗 -->
-            <div id="history-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
-                <div class="glass-panel bg-white/95 rounded-2xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden shadow-xl">
+            <div id="history-detail-modal" class="fixed inset-0 z-[200] hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div class="glass-panel bg-white/95 rounded-2xl max-w-lg w-full mx-4 max-h-[80vh] mb-16 sm:mb-0 overflow-hidden shadow-xl">
                     <div class="px-6 py-4 border-b border-slate-200/50 flex items-center justify-between">
                         <h3 class="text-lg font-bold text-slate-800">评论详情</h3>
                         <button id="modal-close" class="text-slate-400 hover:text-slate-600 transition-colors">
