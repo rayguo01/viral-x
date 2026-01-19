@@ -281,6 +281,21 @@ class TwitterApiClient {
 
             // 特殊处理 429 速率限制错误
             if (tweetResponse.status === 429) {
+                // 打印所有速率限制相关的 headers
+                const rateLimitHeaders = {
+                    'x-rate-limit-limit': tweetResponse.headers.get('x-rate-limit-limit'),
+                    'x-rate-limit-remaining': tweetResponse.headers.get('x-rate-limit-remaining'),
+                    'x-rate-limit-reset': tweetResponse.headers.get('x-rate-limit-reset'),
+                    'retry-after': tweetResponse.headers.get('retry-after')
+                };
+                console.log('[TwitterAPI] 429 速率限制 Headers:', JSON.stringify(rateLimitHeaders));
+
+                // 如果有 x-rate-limit-reset，转换为可读时间
+                if (rateLimitHeaders['x-rate-limit-reset']) {
+                    const resetTime = new Date(parseInt(rateLimitHeaders['x-rate-limit-reset']) * 1000);
+                    console.log(`[TwitterAPI] 限制重置时间: ${resetTime.toISOString()} (本地: ${resetTime.toLocaleString()})`);
+                }
+
                 // 尝试从 header 获取 retry-after 时间（秒）
                 const retryAfter = tweetResponse.headers.get('retry-after');
                 const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : 15 * 60; // 默认 15 分钟
