@@ -228,7 +228,7 @@ router.post('/kol/import', adminAuth, async (req, res) => {
 /**
  * GET /api/comment-assistant/history
  * 获取评论历史（管理员或有权限的用户）
- * 普通用户只能看自己的记录
+ * 所有用户只能看自己的记录（避免重复评论）
  */
 router.get('/history', commentAssistantAuth, async (req, res) => {
     try {
@@ -240,8 +240,8 @@ router.get('/history', commentAssistantAuth, async (req, res) => {
             startDate: start_date,
             endDate: end_date,
             status,
-            // 普通用户只能看自己的记录，管理员可以看所有
-            userId: req.isAdmin ? null : req.user.userId
+            // 所有用户都只能看自己的记录
+            userId: req.user.userId
         });
         res.json(history);
     } catch (error) {
