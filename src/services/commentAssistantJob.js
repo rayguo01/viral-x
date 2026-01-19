@@ -70,6 +70,14 @@ class CommentAssistantJob {
                 return { skipped: true, reason: 'budget_exceeded', monthlySpent };
             }
 
+            // 3.1 检查是否处于速率限制中
+            const rateLimitStatus = await commentAssistantDb.checkRateLimit();
+            if (rateLimitStatus.isLimited) {
+                const minutes = Math.ceil(rateLimitStatus.remainingSeconds / 60);
+                console.log(`[CommentAssistant] 处于速率限制中，还需等待 ${minutes} 分钟，跳过`);
+                return { skipped: true, reason: 'rate_limited', remainingMinutes: minutes, until: rateLimitStatus.until };
+            }
+
             // 4. 判断当前区域（根据 UTC 时间自动切换）
             // UTC 00:00-12:00 → 日区 (ja)，对应日本 JST 09:00-21:00
             // UTC 12:00-24:00 → 美区 (en)，对应美东 EST 07:00-19:00
@@ -125,6 +133,28 @@ class CommentAssistantJob {
                     return { completed: true, commented: 1, tweet: tweet.id };
                 } catch (error) {
                     lastError = error;
+
+                    // 检查是否是 429 速率限制错误
+                    if (error.isRateLimited) {
+                        const retrySeconds = error.retryAfterSeconds || 15 * 60;
+                        const minutes = Math.ceil(retrySeconds / 60);
+                        console.error(`[CommentAssistant] 遇到 429 速率限制，设置等待 ${minutes} 分钟后重试`);
+
+                        // 记录速率限制状态到数据库
+                        await commentAssistantDb.setRateLimit(retrySeconds);
+
+                        // 更新组索引后立即停止
+                        await commentAssistantDb.updateGroupIndex(region, nextGroupIndex);
+
+                        return {
+                            completed: false,
+                            commented: 0,
+                            reason: 'rate_limited',
+                            retryAfterMinutes: minutes,
+                            error: error.message
+                        };
+                    }
+
                     // 检查是否是回复限制错误
                     if (error.message.includes('restricted who can reply') ||
                         error.message.includes('not allowed to reply')) {

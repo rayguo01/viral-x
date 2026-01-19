@@ -1,6 +1,6 @@
 # Web Claude Code 项目概要
 
-## 当前版本: v2.22.3
+## 当前版本: v2.22.4
 
 ## 项目定位
 
@@ -124,6 +124,19 @@ public/
 | v2.22 | KOL 权重系统 |
 
 ## 最近更新
+
+### v2.22.4 - Twitter API 429 速率限制处理
+- **问题**: 评论助手遇到 429 Too Many Requests 错误时继续尝试其他帖子，导致限制加重
+- **解决方案**: 检测到 429 错误后立即停止本轮任务，记录限制状态
+- **代码修改**:
+  - `twitterApiClient.js`: `postComment` 方法检测 429 错误，提取 `retry-after` 时间，抛出带 `isRateLimited` 标记的错误
+  - `commentAssistantDb.js`: 新增 `setRateLimit`、`clearRateLimit`、`checkRateLimit` 方法管理限制状态
+  - `commentAssistantJob.js`: 任务开始时检查限制状态，遇到 429 时设置限制并立即停止
+- **数据库变更**: `comment_settings` 表新增 `rate_limit_until` 字段（TIMESTAMP WITH TIME ZONE）
+- **行为变化**:
+  - 429 错误时立即停止，不再尝试其他帖子
+  - 默认等待 15 分钟（或 API 返回的 retry-after 时间）
+  - 下次任务执行时自动检查限制是否解除
 
 ### v2.22.3 - 美区/日区自动切换
 - **区域切换规则**: 根据 UTC 时间自动切换目标区域

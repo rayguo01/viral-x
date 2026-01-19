@@ -91,6 +91,60 @@ class CommentAssistantDbService {
         );
     }
 
+    /**
+     * 设置速率限制（429 错误时调用）
+     * @param {number} retryAfterSeconds 等待秒数
+     */
+    async setRateLimit(retryAfterSeconds) {
+        const rateLimitUntil = new Date(Date.now() + retryAfterSeconds * 1000);
+        await pool.query(
+            `UPDATE comment_settings
+             SET rate_limit_until = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = 1`,
+            [rateLimitUntil]
+        );
+        console.log(`[CommentAssistantDb] 设置速率限制直到: ${rateLimitUntil.toISOString()}`);
+        return rateLimitUntil;
+    }
+
+    /**
+     * 清除速率限制
+     */
+    async clearRateLimit() {
+        await pool.query(
+            `UPDATE comment_settings
+             SET rate_limit_until = NULL, updated_at = CURRENT_TIMESTAMP
+             WHERE id = 1`
+        );
+    }
+
+    /**
+     * 检查是否处于速率限制中
+     * @returns {{ isLimited: boolean, until: Date | null, remainingSeconds: number }}
+     */
+    async checkRateLimit() {
+        const result = await pool.query(
+            `SELECT rate_limit_until FROM comment_settings WHERE id = 1`
+        );
+        const rateLimitUntil = result.rows[0]?.rate_limit_until;
+
+        if (!rateLimitUntil) {
+            return { isLimited: false, until: null, remainingSeconds: 0 };
+        }
+
+        const now = new Date();
+        const until = new Date(rateLimitUntil);
+
+        if (now >= until) {
+            // 限制已过期，自动清除
+            await this.clearRateLimit();
+            return { isLimited: false, until: null, remainingSeconds: 0 };
+        }
+
+        const remainingSeconds = Math.ceil((until.getTime() - now.getTime()) / 1000);
+        return { isLimited: true, until, remainingSeconds };
+    }
+
     // ============ 大V列表 ============
 
     /**

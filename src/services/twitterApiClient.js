@@ -278,6 +278,18 @@ class TwitterApiClient {
 
         if (!tweetResponse.ok) {
             const errorData = await tweetResponse.json();
+
+            // 特殊处理 429 速率限制错误
+            if (tweetResponse.status === 429) {
+                // 尝试从 header 获取 retry-after 时间（秒）
+                const retryAfter = tweetResponse.headers.get('retry-after');
+                const retrySeconds = retryAfter ? parseInt(retryAfter, 10) : 15 * 60; // 默认 15 分钟
+                const error = new Error(`发评论失败: 429 - ${JSON.stringify(errorData)}`);
+                error.isRateLimited = true;
+                error.retryAfterSeconds = retrySeconds;
+                throw error;
+            }
+
             throw new Error(`发评论失败: ${tweetResponse.status} - ${JSON.stringify(errorData)}`);
         }
 
