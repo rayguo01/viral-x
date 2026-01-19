@@ -165,15 +165,19 @@ class SubmitPage {
     }
 
     async handleTwitterBtn() {
-        if (this.isPublishing) return;
+        // 功能暂时关闭
+        this.generator.showToast('该功能暂不开放', 'info');
+        return;
 
-        if (this.twitterStatus.connected) {
-            // 已连接，直接发布
-            await this.handlePublish();
-        } else {
-            // 未连接，先连接
-            await this.handleConnect();
-        }
+        // if (this.isPublishing) return;
+
+        // if (this.twitterStatus.connected) {
+        //     // 已连接，直接发布
+        //     await this.handlePublish();
+        // } else {
+        //     // 未连接，先连接
+        //     await this.handleConnect();
+        // }
     }
 
     async handleConnect() {
