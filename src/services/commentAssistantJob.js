@@ -37,24 +37,33 @@ class CommentAssistantJob {
         try {
             // 1. 获取设置
             const settings = await commentAssistantDb.getSettings();
-            if (!settings || !settings.auto_enabled) {
-                console.log('[CommentAssistant] 功能未启用，跳过');
+            if (!settings) {
+                console.log('[CommentAssistant] 无法获取设置，跳过');
+                return { skipped: true, reason: 'no_settings' };
+            }
+
+            // 1.1 检查自动评论开关和配置
+            let autoCommentReady = false;
+            if (settings.auto_enabled && settings.comment_user_id) {
+                const credentials = await commentAssistantDb.getUserTwitterCredentials(settings.comment_user_id);
+                if (credentials) {
+                    autoCommentReady = true;
+                    console.log(`[CommentAssistant] 自动评论账号: @${credentials.twitter_username}`);
+                } else {
+                    console.log('[CommentAssistant] 自动评论账号未绑定 Twitter，自动评论将跳过');
+                }
+            }
+
+            // 1.2 检查手动评论开关
+            const manualEnabled = settings.manual_enabled || false;
+
+            // 1.3 如果两个功能都未启用，则跳过
+            if (!autoCommentReady && !manualEnabled) {
+                console.log('[CommentAssistant] 自动评论和手动评论均未启用，跳过');
                 return { skipped: true, reason: 'disabled' };
             }
 
-            // 1.1 检查是否设置了评论账号
-            if (!settings.comment_user_id) {
-                console.log('[CommentAssistant] 未设置评论账号，跳过');
-                return { skipped: true, reason: 'no_comment_user' };
-            }
-
-            // 1.2 验证评论账号的 Token 是否有效
-            const credentials = await commentAssistantDb.getUserTwitterCredentials(settings.comment_user_id);
-            if (!credentials) {
-                console.log('[CommentAssistant] 评论账号未绑定 Twitter，跳过');
-                return { skipped: true, reason: 'comment_user_not_bound' };
-            }
-            console.log(`[CommentAssistant] 评论账号: @${credentials.twitter_username}`);
+            console.log(`[CommentAssistant] 自动评论: ${autoCommentReady ? '启用' : '禁用'}, 手动评论: ${manualEnabled ? '启用' : '禁用'}`);
 
             // 2. 检查今日评论数
             const todayCount = await commentAssistantDb.getTodayCommentCount();
@@ -109,71 +118,128 @@ class CommentAssistantJob {
                 return { completed: true, commented: 0, reason: 'no_candidates' };
             }
 
-            // 8. 尝试评论候选帖子（遇到限制时跳过）
-            let commented = false;
+            // 8. 如果手动评论启用，为手动用户生成待评论记录（轮流分配，避免重复评论）
+            let pendingCreated = 0;
+            if (manualEnabled) {
+                // 获取手动用户列表（有权限但不是自动发布账号）
+                const manualUsers = await commentAssistantDb.getManualCommentUsers(
+                    autoCommentReady ? settings.comment_user_id : null
+                );
+                console.log(`[CommentAssistant] 手动用户数: ${manualUsers.length}`);
+
+                if (manualUsers.length > 0) {
+                    // 轮流分配推文给用户（每条推文只分配给1个用户）
+                    for (let i = 0; i < candidateTweets.length; i++) {
+                        const tweet = candidateTweets[i];
+                        const user = manualUsers[i % manualUsers.length]; // 轮流分配
+
+                        // 检查该用户是否已有这个帖子的记录
+                        const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
+                        if (hasRecord) {
+                            console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
+                            continue;
+                        }
+
+                        // 为该用户生成评论内容
+                        const generated = await commentGenerator.generate(tweet, region);
+
+                        // 保存待评论记录
+                        await commentAssistantDb.saveComment({
+                            userId: user.id,
+                            region,
+                            tweetId: tweet.id,
+                            tweetUrl: tweet.url,
+                            tweetAuthor: tweet.author,
+                            tweetContent: tweet.content?.substring(0, 200),
+                            commentContent: generated.content,
+                            commentStyle: generated.style,
+                            commentTweetId: null,
+                            status: 'pending',
+                            isAuto: false
+                        });
+
+                        pendingCreated++;
+                        console.log(`[CommentAssistant] 分配给用户 ${user.username}: ${tweet.author} - ${tweet.id}`);
+                    }
+                }
+                console.log(`[CommentAssistant] 共创建 ${pendingCreated} 条待评论记录`);
+            } else {
+                console.log('[CommentAssistant] 手动评论未启用，跳过生成待评论记录');
+            }
+
+            // 10. 如果启用了自动评论，为自动用户发布评论
+            let autoCommented = 0;
             let lastError = null;
 
-            for (const tweet of candidateTweets.slice(0, 5)) { // 最多尝试 5 条
-                try {
-                    console.log(`[CommentAssistant] 尝试帖子: @${tweet.author} - ${tweet.id} (${tweet.replyCount}条评论)`);
+            if (autoCommentReady) {
+                console.log('[CommentAssistant] 自动评论已启用，开始发布...');
 
-                    // 生成评论
-                    const generated = await commentGenerator.generate(tweet, region);
-                    console.log(`[CommentAssistant] 生成评论 (${generated.style}): ${generated.content}`);
+                for (const tweet of candidateTweets.slice(0, 3)) { // 自动评论最多 3 条
+                    try {
+                        console.log(`[CommentAssistant] 自动评论帖子: @${tweet.author} - ${tweet.id}`);
 
-                    // 点赞 + 延迟 + 发布评论
-                    await this.likeAndComment(tweet, generated, region, settings, settings.comment_user_id);
+                        // 生成评论
+                        const generated = await commentGenerator.generate(tweet, region);
+                        console.log(`[CommentAssistant] 生成评论 (${generated.style}): ${generated.content}`);
 
-                    commented = true;
-                    console.log('[CommentAssistant] 任务完成');
+                        // 点赞 + 延迟 + 发布评论
+                        await this.likeAndComment(tweet, generated, region, settings, settings.comment_user_id);
 
-                    // 更新组索引
-                    await commentAssistantDb.updateGroupIndex(region, nextGroupIndex);
+                        autoCommented++;
+                        console.log(`[CommentAssistant] 自动评论成功: ${tweet.id}`);
 
-                    return { completed: true, commented: 1, tweet: tweet.id };
-                } catch (error) {
-                    lastError = error;
+                        // 一次任务只自动评论一条
+                        break;
+                    } catch (error) {
+                        lastError = error;
 
-                    // 检查是否是 429 速率限制错误
-                    if (error.isRateLimited) {
-                        const retrySeconds = error.retryAfterSeconds || 15 * 60;
-                        const minutes = Math.ceil(retrySeconds / 60);
-                        console.error(`[CommentAssistant] 遇到 429 速率限制，设置等待 ${minutes} 分钟后重试`);
+                        // 检查是否是 429 速率限制错误
+                        if (error.isRateLimited) {
+                            const retrySeconds = error.retryAfterSeconds || 15 * 60;
+                            const minutes = Math.ceil(retrySeconds / 60);
+                            console.error(`[CommentAssistant] 遇到 429 速率限制，设置等待 ${minutes} 分钟后重试`);
 
-                        // 记录速率限制状态到数据库
-                        await commentAssistantDb.setRateLimit(retrySeconds);
+                            // 记录速率限制状态到数据库
+                            await commentAssistantDb.setRateLimit(retrySeconds);
 
-                        // 更新组索引后立即停止
-                        await commentAssistantDb.updateGroupIndex(region, nextGroupIndex);
+                            // 更新组索引后立即停止
+                            await commentAssistantDb.updateGroupIndex(region, nextGroupIndex);
 
-                        return {
-                            completed: false,
-                            commented: 0,
-                            reason: 'rate_limited',
-                            retryAfterMinutes: minutes,
-                            error: error.message
-                        };
-                    }
+                            return {
+                                completed: false,
+                                autoCommented,
+                                pendingCreated,
+                                reason: 'rate_limited',
+                                retryAfterMinutes: minutes,
+                                error: error.message
+                            };
+                        }
 
-                    // 检查是否是回复限制错误
-                    if (error.message.includes('restricted who can reply') ||
-                        error.message.includes('not allowed to reply')) {
-                        console.log(`[CommentAssistant] 帖子 ${tweet.id} 限制回复，跳过`);
+                        // 检查是否是回复限制错误
+                        if (error.message.includes('restricted who can reply') ||
+                            error.message.includes('not allowed to reply')) {
+                            console.log(`[CommentAssistant] 帖子 ${tweet.id} 限制回复，跳过`);
+                            continue;
+                        }
+                        // 其他错误也跳过，尝试下一条
+                        console.error(`[CommentAssistant] 帖子 ${tweet.id} 自动评论失败:`, error.message);
                         continue;
                     }
-                    // 其他错误也跳过，尝试下一条
-                    console.error(`[CommentAssistant] 帖子 ${tweet.id} 评论失败:`, error.message);
-                    continue;
                 }
+            } else {
+                console.log('[CommentAssistant] 自动评论未启用，仅生成待评论记录');
             }
 
-            // 所有候选都失败了
+            // 更新组索引
             await commentAssistantDb.updateGroupIndex(region, nextGroupIndex);
 
-            if (!commented) {
-                console.log('[CommentAssistant] 所有候选帖子都无法评论');
-                return { completed: true, commented: 0, reason: 'all_restricted', lastError: lastError?.message };
-            }
+            console.log(`[CommentAssistant] 任务完成: 待评论=${pendingCreated}, 自动评论=${autoCommented}`);
+            return {
+                completed: true,
+                pendingCreated,
+                autoCommented,
+                lastError: lastError?.message
+            };
 
         } catch (error) {
             console.error('[CommentAssistant] 任务执行失败:', error);
@@ -250,14 +316,31 @@ class CommentAssistantJob {
 
         console.log(`[CommentAssistant] 筛选统计: 总计=${stats.total}, 时间过早=${stats.tooOld}, 评论过多=${stats.tooManyReplies}, 已评论=${stats.alreadyCommented}, 通过=${stats.passed}`);
 
-        // 排序优先级：1. 发帖时间新的 2. 评论数少的
-        return candidates.sort((a, b) => {
-            // 先按时间排序（新的在前）
+        // 每个推主只选1条最优的推文
+        const bestByAuthor = new Map();
+        for (const tweet of candidates) {
+            const existing = bestByAuthor.get(tweet.author);
+            if (!existing) {
+                bestByAuthor.set(tweet.author, tweet);
+            } else {
+                // 优先选：1. 发帖时间新的 2. 评论数少的
+                const existingTime = new Date(existing.createdAt).getTime();
+                const tweetTime = new Date(tweet.createdAt).getTime();
+                if (tweetTime > existingTime ||
+                    (tweetTime === existingTime && tweet.replyCount < existing.replyCount)) {
+                    bestByAuthor.set(tweet.author, tweet);
+                }
+            }
+        }
+
+        const result = Array.from(bestByAuthor.values());
+        console.log(`[CommentAssistant] 每个推主选1条后: ${result.length} 条推文`);
+
+        // 按时间排序（新的在前）
+        return result.sort((a, b) => {
             const timeA = new Date(a.createdAt).getTime();
             const timeB = new Date(b.createdAt).getTime();
-            if (timeA !== timeB) return timeB - timeA;
-            // 时间相同则按评论数排序（少的在前）
-            return a.replyCount - b.replyCount;
+            return timeB - timeA;
         });
     }
 
@@ -302,6 +385,180 @@ class CommentAssistantJob {
         await commentAssistantDb.createInboxNotification(commentUserId, savedComment.id);
 
         console.log(`[CommentAssistant] 已发布评论，ID: ${savedComment.id}`);
+    }
+
+    /**
+     * 仅执行自动评论（手动触发按钮调用）
+     * 不检查 auto_enabled 开关，直接执行一次
+     */
+    async runAutoOnly() {
+        if (this.isRunning) {
+            return { skipped: true, reason: 'already_running' };
+        }
+
+        this.isRunning = true;
+        console.log('[CommentAssistant] 开始执行自动评论...');
+
+        try {
+            const settings = await commentAssistantDb.getSettings();
+            if (!settings) {
+                return { skipped: true, reason: 'no_settings' };
+            }
+
+            // 验证评论账号
+            if (!settings.comment_user_id) {
+                return { skipped: true, reason: 'no_comment_user' };
+            }
+
+            const credentials = await commentAssistantDb.getUserTwitterCredentials(settings.comment_user_id);
+            if (!credentials) {
+                return { skipped: true, reason: 'comment_user_not_bound' };
+            }
+            console.log(`[CommentAssistant] 评论账号: @${credentials.twitter_username}`);
+
+            // 判断当前区域
+            const now = new Date();
+            const utcHour = now.getUTCHours();
+            const region = utcHour < 12 ? 'ja' : 'en';
+
+            // 获取当前组的 KOL
+            const groupIndex = region === 'ja' ? settings.ja_group_index : settings.en_group_index;
+            const kols = await commentAssistantDb.getKolsByGroup(region, groupIndex);
+            if (kols.length === 0) {
+                return { completed: true, autoCommented: 0, reason: 'no_kols' };
+            }
+
+            // 获取候选推文
+            const candidateTweets = await this.fetchCandidateTweets(kols, region);
+            if (candidateTweets.length === 0) {
+                return { completed: true, autoCommented: 0, reason: 'no_candidates' };
+            }
+
+            // 执行自动评论
+            let autoCommented = 0;
+            let lastError = null;
+
+            for (const tweet of candidateTweets.slice(0, 3)) {
+                try {
+                    const generated = await commentGenerator.generate(tweet, region);
+                    await this.likeAndComment(tweet, generated, region, settings, settings.comment_user_id);
+                    autoCommented++;
+                    break; // 一次只评论一条
+                } catch (error) {
+                    lastError = error;
+                    if (error.isRateLimited) {
+                        await commentAssistantDb.setRateLimit(error.retryAfterSeconds || 15 * 60);
+                        return { completed: false, autoCommented, reason: 'rate_limited', error: error.message };
+                    }
+                    continue;
+                }
+            }
+
+            console.log(`[CommentAssistant] 自动评论完成: ${autoCommented} 条`);
+            return { completed: true, autoCommented, lastError: lastError?.message };
+
+        } catch (error) {
+            console.error('[CommentAssistant] 自动评论失败:', error);
+            throw error;
+        } finally {
+            this.isRunning = false;
+        }
+    }
+
+    /**
+     * 仅执行手动评论生成（手动触发按钮调用）
+     * 不检查 manual_enabled 开关，直接执行一次
+     */
+    async runManualOnly() {
+        // 防止重复执行
+        if (this.isRunning) {
+            console.log('[CommentAssistant] 任务正在运行中，跳过');
+            return { skipped: true, reason: 'already_running' };
+        }
+
+        this.isRunning = true;
+        console.log('[CommentAssistant] 开始执行手动评论生成...');
+
+        try {
+            const settings = await commentAssistantDb.getSettings();
+            if (!settings) {
+                return { skipped: true, reason: 'no_settings' };
+            }
+
+            // 判断当前区域
+            const now = new Date();
+            const utcHour = now.getUTCHours();
+            const region = utcHour < 12 ? 'ja' : 'en';
+            console.log(`[CommentAssistant] 当前区域: ${region}`);
+
+            // 获取当前组的 KOL
+            const groupIndex = region === 'ja' ? settings.ja_group_index : settings.en_group_index;
+            const kols = await commentAssistantDb.getKolsByGroup(region, groupIndex);
+            if (kols.length === 0) {
+                console.log(`[CommentAssistant] ${region} 区组 ${groupIndex} 无 KOL`);
+                return { completed: true, pendingCreated: 0, reason: 'no_kols' };
+            }
+            console.log(`[CommentAssistant] 检查 ${kols.length} 个 KOL (组 ${groupIndex})`);
+
+            // 获取候选推文
+            const candidateTweets = await this.fetchCandidateTweets(kols, region);
+            console.log(`[CommentAssistant] 候选推文: ${candidateTweets.length} 条`);
+
+            if (candidateTweets.length === 0) {
+                return { completed: true, pendingCreated: 0, reason: 'no_candidates' };
+            }
+
+            // 获取手动用户列表（排除自动评论账号）
+            const manualUsers = await commentAssistantDb.getManualCommentUsers(
+                settings.auto_enabled ? settings.comment_user_id : null
+            );
+            console.log(`[CommentAssistant] 手动用户数: ${manualUsers.length}`);
+
+            if (manualUsers.length === 0) {
+                return { completed: true, pendingCreated: 0, reason: 'no_manual_users' };
+            }
+
+            // 轮流分配推文给用户（每条推文只分配给1个用户，避免重复评论）
+            let pendingCreated = 0;
+            for (let i = 0; i < candidateTweets.length; i++) {
+                const tweet = candidateTweets[i];
+                const user = manualUsers[i % manualUsers.length]; // 轮流分配
+
+                const hasRecord = await commentAssistantDb.hasUserComment(user.id, tweet.id);
+                if (hasRecord) {
+                    console.log(`[CommentAssistant] 用户 ${user.username} 已有帖子 ${tweet.id} 的记录，跳过`);
+                    continue;
+                }
+
+                const generated = await commentGenerator.generate(tweet, region);
+
+                await commentAssistantDb.saveComment({
+                    userId: user.id,
+                    region,
+                    tweetId: tweet.id,
+                    tweetUrl: tweet.url,
+                    tweetAuthor: tweet.author,
+                    tweetContent: tweet.content?.substring(0, 200),
+                    commentContent: generated.content,
+                    commentStyle: generated.style,
+                    commentTweetId: null,
+                    status: 'pending',
+                    isAuto: false
+                });
+
+                pendingCreated++;
+                console.log(`[CommentAssistant] 分配给用户 ${user.username}: ${tweet.author} - ${tweet.id}`);
+            }
+
+            console.log(`[CommentAssistant] 手动评论生成完成: ${pendingCreated} 条`);
+            return { completed: true, pendingCreated };
+
+        } catch (error) {
+            console.error('[CommentAssistant] 手动评论生成失败:', error);
+            throw error;
+        } finally {
+            this.isRunning = false;
+        }
     }
 }
 

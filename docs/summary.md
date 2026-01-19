@@ -1,6 +1,6 @@
 # Web Claude Code 项目概要
 
-## 当前版本: v2.22.4
+## 当前版本: v2.22.6
 
 ## 项目定位
 
@@ -124,6 +124,51 @@ public/
 | v2.22 | KOL 权重系统 |
 
 ## 最近更新
+
+### v2.22.6 - 多用户手动评论功能
+- **功能分离**: 自动评论和手动评论完全独立，各有启停开关和"运行一次"按钮
+- **自动评论**: 启用后每 30 分钟自动发布评论到 Twitter（使用指定用户的 OAuth Token）
+- **手动评论**: 启用后每 30 分钟生成待评论记录，用户手动复制评论内容到 Twitter
+- **轮流分配**: 推文按轮流方式分配给多个用户，避免重复评论
+  - 例如：3 条推文、3 个用户，每人分配 1 条不同的推文
+- **权限隔离**: 普通用户只能看到分配给自己的评论记录，管理员可以看到所有
+- **评论状态**:
+  - `pending`: 待评论（手动评论生成的记录）
+  - `completed`: 已完成（用户点击"已评论"按钮后）
+- **UI 优化**:
+  - 仪表盘分两个独立区块显示自动评论和手动评论控制
+  - 历史记录支持按状态筛选（全部/待评论/已完成）
+  - 详情弹窗中待评论记录显示"已评论"按钮
+- **数据库变更**:
+  - `comment_settings` 表新增 `manual_enabled` 字段
+  - `comment_history` 表新增 `status`、`is_auto` 字段
+- **API 端点**:
+  - `POST /api/comment-assistant/run-auto` - 手动触发一次自动评论
+  - `POST /api/comment-assistant/run-manual` - 手动触发一次手动评论生成
+  - `PUT /api/comment-assistant/history/:id/complete` - 标记评论为已完成
+
+### v2.22.5 - 评论助手权限系统
+- **权限控制**: 评论助手从仅管理员可见改为权限控制
+  - 管理员自动拥有评论助手权限
+  - 普通用户需要管理员授权才能看到评论助手入口
+- **Tab 差异化**:
+  - 管理员: 显示所有 tab（仪表盘、大V管理、评论历史、费用统计）
+  - 普通用户（有权限）: 仅显示"评论历史" tab
+- **后端实现**:
+  - `users` 表新增 `can_use_comment_assistant` 布尔字段
+  - `auth.js` 登录接口返回 `canUseCommentAssistant` 字段
+  - `admin.js` 新增 `/users/:userId/set-comment-assistant-permission` API
+  - `/admin/users` 接口返回用户的评论助手权限状态
+- **前端实现**:
+  - `app.js` 存储和读取 `canUseCommentAssistant` 到 localStorage
+  - `renderAdminMenu` 方法根据权限决定是否显示评论助手入口
+  - `CommentAssistantPage` 接受 `isAdmin` 参数，决定显示哪些 tab
+  - `admin.html` 用户管理表格新增"评论助手"列，支持一键授权/取消
+- **UI 交互**:
+  - 管理员用户显示"有权限"静态标签（自动拥有）
+  - 普通用户显示可点击按钮，点击切换权限状态
+  - 有权限显示绿色"有权限"，无权限显示灰色"无权限"
+  - 悬停时颜色变化提示可操作
 
 ### v2.22.4 - Twitter API 429 速率限制处理
 - **问题**: 评论助手遇到 429 Too Many Requests 错误时继续尝试其他帖子，导致限制加重

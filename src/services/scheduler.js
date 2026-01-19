@@ -989,13 +989,12 @@ class Scheduler {
 const scheduler = new Scheduler();
 
 // ============ 评论涨粉助手定时任务 ============
-// 每 30 分钟执行一次（独立于 FETCH_ENABLED 配置）
-// 使用 setInterval 代替 cron，更可靠
+// 在整数半点执行（每小时的 :00 和 :30）
 const commentAssistantJob = require('./commentAssistantJob');
 
 let commentAssistantRunning = false;
 
-async function runCommentAssistant(source = 'interval') {
+async function runCommentAssistant(source = 'cron') {
     if (commentAssistantRunning) {
         console.log(`[Scheduler] 评论助手任务正在运行中，跳过 (来源: ${source})`);
         return;
@@ -1012,18 +1011,14 @@ async function runCommentAssistant(source = 'interval') {
     }
 }
 
-// 每 30 分钟执行一次
-const COMMENT_ASSISTANT_INTERVAL = 30 * 60 * 1000; // 30 分钟
-const commentAssistantTimer = setInterval(() => runCommentAssistant('定时'), COMMENT_ASSISTANT_INTERVAL);
+// 整数半点执行：每小时的 0 分和 30 分
+const commentAssistantCron = cron.schedule('0,30 * * * *', () => {
+    runCommentAssistant('整点定时');
+});
 
 // 保存引用防止被回收
-scheduler.jobs.set('comment-assistant', commentAssistantTimer);
+scheduler.jobs.set('comment-assistant', commentAssistantCron);
 
-// 启动后 1 分钟执行第一次
-setTimeout(() => {
-    runCommentAssistant('启动首次');
-}, 60000);
-
-console.log('[调度器] 评论涨粉助手定时任务已启动（每30分钟执行）');
+console.log('[调度器] 评论涨粉助手定时任务已启动（每小时 :00 和 :30 执行）');
 
 module.exports = scheduler;

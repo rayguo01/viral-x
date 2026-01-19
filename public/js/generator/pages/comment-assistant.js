@@ -1,27 +1,22 @@
 /**
- * 评论涨粉助手页面
+ * 评论助手页面（普通用户界面）
+ * 只显示评论历史，管理功能在 /admin.html 中
  */
 
 class CommentAssistantPage {
-    constructor() {
-        this.settings = null;
-        this.status = null;
-        this.currentTab = 'dashboard';
+    constructor(options = {}) {
+        this.currentTab = 'history';
+        // 分页状态
+        this.historyPage = 1;
+        this.historyLimit = 20;
     }
 
     async render() {
         return `
             <div class="comment-assistant-page">
                 <div class="page-header">
-                    <h1 class="font-serif text-2xl font-bold text-slate-800">评论涨粉助手</h1>
-                    <p class="text-slate-500 mt-2">自动追踪大V帖子，抢占高潜力评论位</p>
-                </div>
-
-                <div class="tabs flex gap-2 mb-6 border-b border-slate-200 pb-2">
-                    <button class="tab-btn active px-4 py-2 rounded" data-tab="dashboard">仪表盘</button>
-                    <button class="tab-btn px-4 py-2 rounded" data-tab="kol">大V管理</button>
-                    <button class="tab-btn px-4 py-2 rounded" data-tab="history">评论历史</button>
-                    <button class="tab-btn px-4 py-2 rounded" data-tab="usage">费用统计</button>
+                    <h1 class="font-serif text-2xl font-bold text-slate-800">评论助手</h1>
+                    <p class="text-slate-500 mt-2">查看评论助手自动发布的评论记录</p>
                 </div>
 
                 <div class="tab-content" id="tab-content">
@@ -32,15 +27,8 @@ class CommentAssistantPage {
     }
 
     async afterRender() {
-        // 绑定 Tab 切换
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.switchTab(e.target.dataset.tab);
-            });
-        });
-
-        // 加载仪表盘
-        await this.loadDashboard();
+        // 直接加载评论历史
+        await this.loadHistory();
     }
 
     switchTab(tab) {
@@ -100,18 +88,49 @@ class CommentAssistantPage {
                 </div>
                 ` : ''}
 
-                <!-- 状态卡片 -->
-                <div class="status-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-                    <div class="status-card glass-panel p-4 rounded-lg">
-                        <div class="card-title text-xs text-slate-500 uppercase">功能状态</div>
-                        <div class="card-value mt-2 flex items-center gap-3">
-                            <label class="switch">
-                                <input type="checkbox" id="auto-enabled" ${settings.auto_enabled ? 'checked' : ''}>
-                                <span class="slider"></span>
-                            </label>
-                            <span class="status-label text-lg font-bold">${settings.auto_enabled ? '运行中' : '已停止'}</span>
+                <!-- 功能控制 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    <!-- 自动评论 -->
+                    <div class="glass-panel p-4 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-bold text-slate-800">自动评论</h4>
+                            <div class="flex items-center gap-3">
+                                <label class="switch">
+                                    <input type="checkbox" id="auto-enabled" ${settings.auto_enabled ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="text-sm font-bold ${settings.auto_enabled ? 'text-green-600' : 'text-slate-400'}">${settings.auto_enabled ? '运行中' : '已停止'}</span>
+                            </div>
                         </div>
+                        <p class="text-xs text-slate-500 mb-3">自动抓取KOL推文并发布评论到Twitter</p>
+                        <button class="btn-secondary px-3 py-1.5 text-sm border border-slate-300 rounded hover:bg-slate-50" id="run-auto-once">
+                            <span class="material-icons-outlined align-middle mr-1 text-sm">play_arrow</span>运行一次
+                        </button>
+                        <div id="auto-run-result" class="mt-2"></div>
                     </div>
+
+                    <!-- 手动评论 -->
+                    <div class="glass-panel p-4 rounded-lg">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-bold text-slate-800">手动评论</h4>
+                            <div class="flex items-center gap-3">
+                                <label class="switch">
+                                    <input type="checkbox" id="manual-enabled" ${settings.manual_enabled ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="text-sm font-bold ${settings.manual_enabled ? 'text-green-600' : 'text-slate-400'}">${settings.manual_enabled ? '运行中' : '已停止'}</span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-3">为有权限的用户生成待评论记录，用户手动复制发布</p>
+                        <button class="btn-secondary px-3 py-1.5 text-sm border border-amber-300 bg-amber-50 text-amber-700 rounded hover:bg-amber-100" id="run-manual-once">
+                            <span class="material-icons-outlined align-middle mr-1 text-sm">edit_note</span>运行一次
+                        </button>
+                        <div id="manual-run-result" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <!-- 状态卡片 -->
+                <div class="status-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div class="status-card glass-panel p-4 rounded-lg">
                         <div class="card-title text-xs text-slate-500 uppercase">评论账号</div>
                         <div class="card-value mt-2 text-lg font-bold ${hasCommentUser ? 'text-green-600' : 'text-red-500'}">
@@ -173,12 +192,6 @@ class CommentAssistantPage {
                     </div>
                 </div>
 
-                <!-- 调试 -->
-                <div class="debug-section glass-panel p-6 rounded-lg">
-                    <h3 class="font-serif text-lg font-bold mb-4">调试</h3>
-                    <button class="btn-secondary px-4 py-2 border border-slate-300 rounded hover:bg-slate-50" id="manual-run">手动执行一次</button>
-                    <div id="run-result" class="mt-4"></div>
-                </div>
             </div>
         `;
     }
@@ -189,9 +202,14 @@ class CommentAssistantPage {
         // 加载 Twitter 用户列表
         this.loadTwitterUsers(token);
 
-        // 开关
+        // 自动评论开关
         document.getElementById('auto-enabled')?.addEventListener('change', async (e) => {
             await this.updateSettings({ autoEnabled: e.target.checked }, token);
+        });
+
+        // 手动评论开关
+        document.getElementById('manual-enabled')?.addEventListener('change', async (e) => {
+            await this.updateSettings({ manualEnabled: e.target.checked }, token);
         });
 
         // 保存设置
@@ -202,20 +220,37 @@ class CommentAssistantPage {
             await this.updateSettings({ dailyLimit, monthlyBudget, commentUserId: commentUserId ? parseInt(commentUserId) : null }, token);
         });
 
-        // 手动执行
-        document.getElementById('manual-run')?.addEventListener('click', async () => {
-            const resultDiv = document.getElementById('run-result');
-            resultDiv.innerHTML = '<span class="text-slate-500">执行中...</span>';
+        // 运行一次自动评论
+        document.getElementById('run-auto-once')?.addEventListener('click', async () => {
+            const resultDiv = document.getElementById('auto-run-result');
+            resultDiv.innerHTML = '<span class="text-slate-500 text-xs">执行中...</span>';
             try {
-                const res = await fetch('/api/comment-assistant/run', {
+                const res = await fetch('/api/comment-assistant/run-auto', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const result = await res.json();
-                resultDiv.innerHTML = `<pre class="bg-slate-100 p-4 rounded text-sm overflow-auto">${JSON.stringify(result, null, 2)}</pre>`;
-                this.loadDashboard(); // 刷新
+                resultDiv.innerHTML = `<pre class="bg-slate-100 p-2 rounded text-xs overflow-auto max-h-32">${JSON.stringify(result, null, 2)}</pre>`;
+                this.loadDashboard();
             } catch (error) {
-                resultDiv.innerHTML = `<div class="text-red-600">${error.message}</div>`;
+                resultDiv.innerHTML = `<div class="text-red-600 text-xs">${error.message}</div>`;
+            }
+        });
+
+        // 运行一次手动评论
+        document.getElementById('run-manual-once')?.addEventListener('click', async () => {
+            const resultDiv = document.getElementById('manual-run-result');
+            resultDiv.innerHTML = '<span class="text-amber-600 text-xs">生成中...</span>';
+            try {
+                const res = await fetch('/api/comment-assistant/run-manual', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await res.json();
+                resultDiv.innerHTML = `<pre class="bg-amber-50 p-2 rounded text-xs overflow-auto max-h-32 border border-amber-200">${JSON.stringify(result, null, 2)}</pre>`;
+                this.loadDashboard();
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="text-red-600 text-xs">${error.message}</div>`;
             }
         });
     }
@@ -576,51 +611,360 @@ class CommentAssistantPage {
 
     // ============ 历史 ============
 
-    async loadHistory() {
+    async loadHistory(page = 1, status = null) {
         const container = document.getElementById('tab-content');
         container.innerHTML = '<div class="loading text-center py-10 text-slate-500">加载中...</div>';
 
+        this.historyPage = page;
+        this.historyStatus = status;
+
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('/api/comment-assistant/history', {
+            let url = `/api/comment-assistant/history?page=${page}&limit=${this.historyLimit}`;
+            if (status) {
+                url += `&status=${status}`;
+            }
+            const res = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
 
+            if (!res.ok) {
+                throw new Error(data.error || '加载失败');
+            }
+
             container.innerHTML = this.renderHistory(data);
+            this.bindHistoryEvents();
         } catch (error) {
             container.innerHTML = `<div class="error text-red-600 p-4 bg-red-50 rounded">加载失败: ${error.message}</div>`;
         }
     }
 
     renderHistory(data) {
-        if (data.items.length === 0) {
-            return '<div class="text-slate-400 text-center py-10">暂无评论记录</div>';
+        // 保存数据供弹窗使用
+        this.historyItems = data.items || [];
+
+        const totalPages = Math.ceil(data.total / this.historyLimit);
+        const currentPage = data.page || this.historyPage;
+        const currentStatus = this.historyStatus || '';
+        const pendingCount = data.pendingCount || 0;
+
+        // 空数据提示
+        const emptyMsg = currentStatus === 'pending'
+            ? '暂无待评论记录'
+            : currentStatus === 'completed'
+                ? '暂无已完成记录'
+                : '暂无评论记录';
+
+        if (!data.items || data.items.length === 0) {
+            return `
+                <div class="history-list">
+                    <!-- 状态筛选 -->
+                    <div class="history-filter mb-4 flex items-center gap-2">
+                        <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${!currentStatus ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="">全部</button>
+                        <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${currentStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="pending">
+                            待评论 ${pendingCount > 0 ? `<span class="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">${pendingCount}</span>` : ''}
+                        </button>
+                        <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${currentStatus === 'completed' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="completed">已完成</button>
+                    </div>
+                    <div class="text-slate-400 text-center py-10">${emptyMsg}</div>
+                </div>
+            `;
         }
 
         return `
             <div class="history-list">
-                <div class="history-header mb-4 text-slate-500">
-                    共 ${data.total} 条记录
+                <!-- 状态筛选 -->
+                <div class="history-filter mb-4 flex items-center gap-2">
+                    <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${!currentStatus ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="">全部</button>
+                    <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${currentStatus === 'pending' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="pending">
+                        待评论 ${pendingCount > 0 ? `<span class="ml-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full">${pendingCount}</span>` : ''}
+                    </button>
+                    <button class="filter-btn px-3 py-1.5 text-sm rounded-lg ${currentStatus === 'completed' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}" data-status="completed">已完成</button>
                 </div>
-                ${data.items.map(item => `
-                    <div class="history-item glass-panel p-4 rounded-lg mb-3">
+
+                <div class="history-header mb-4 flex items-center justify-between">
+                    <span class="text-slate-500">共 ${data.total} 条记录</span>
+                    <span class="text-slate-400 text-sm">第 ${currentPage} / ${totalPages} 页</span>
+                </div>
+                ${data.items.map((item, index) => {
+                    const isPending = item.status === 'pending';
+                    const statusLabel = isPending ? '待评论' : '已完成';
+                    const statusClass = isPending ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700';
+                    return `
+                    <div class="history-item glass-panel p-4 rounded-lg mb-3 cursor-pointer hover:bg-slate-50 transition-colors ${isPending ? 'border-l-4 border-orange-400' : ''}" data-index="${index}">
                         <div class="history-meta flex items-center gap-2 mb-2">
+                            <span class="status-tag px-2 py-1 rounded text-xs font-bold ${statusClass}">${statusLabel}</span>
                             <span class="region-tag px-2 py-1 rounded text-xs font-bold ${item.region === 'ja' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${item.region === 'ja' ? '日区' : '美区'}</span>
                             <span class="style-tag px-2 py-1 bg-slate-100 rounded text-xs">${item.comment_style}</span>
                             <span class="time ml-auto text-slate-400 text-xs">${new Date(item.published_at).toLocaleString()}</span>
                         </div>
                         <div class="history-tweet bg-slate-50 p-3 rounded mb-2">
-                            <a href="${item.tweet_url}" target="_blank" class="text-blue-600 font-bold">@${item.tweet_author}</a>
-                            <p class="text-slate-600 text-sm mt-1">${item.tweet_content || ''}</p>
+                            <span class="text-blue-600 font-bold">@${item.tweet_author}</span>
+                            <p class="text-slate-600 text-sm mt-1 line-clamp-2">${item.tweet_content || ''}</p>
                         </div>
                         <div class="history-comment">
-                            <strong class="text-slate-700">评论:</strong> <span class="text-slate-600">${item.comment_content}</span>
+                            <strong class="text-slate-700">评论:</strong> <span class="text-slate-600 line-clamp-1">${item.comment_content}</span>
                         </div>
                     </div>
-                `).join('')}
+                `}).join('')}
+
+                <!-- 分页控件 -->
+                ${totalPages > 1 ? `
+                    <div class="pagination flex items-center justify-center gap-2 mt-6 pt-4 border-t border-slate-200">
+                        <button class="btn-page px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                id="history-prev" ${currentPage <= 1 ? 'disabled' : ''}>
+                            上一页
+                        </button>
+                        <span class="text-slate-500 text-sm px-3">${currentPage} / ${totalPages}</span>
+                        <button class="btn-page px-3 py-1.5 text-sm border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                id="history-next" ${currentPage >= totalPages ? 'disabled' : ''}>
+                            下一页
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+
+            <!-- 详情弹窗 -->
+            <div id="history-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+                <div class="glass-panel bg-white/95 rounded-2xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden shadow-xl">
+                    <div class="px-6 py-4 border-b border-slate-200/50 flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-800">评论详情</h3>
+                        <button id="modal-close" class="text-slate-400 hover:text-slate-600 transition-colors">
+                            <span class="material-icons-outlined">close</span>
+                        </button>
+                    </div>
+                    <div class="p-6 overflow-y-auto max-h-[65vh] space-y-4" id="modal-content">
+                        <!-- 动态填充 -->
+                    </div>
+                    <div class="px-6 py-4 border-t border-slate-200/50 flex justify-between items-center">
+                        <button id="modal-mark-complete" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors hidden">
+                            <span class="material-icons-outlined text-sm align-middle mr-1">check</span>已评论
+                        </button>
+                        <div class="flex gap-2 ml-auto">
+                            <button id="modal-close-btn" class="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">关闭</button>
+                            <a id="modal-tweet-link" href="#" target="_blank" class="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2">
+                                <span style="font-family: system-ui;">𝕏</span> 前往推文
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
+    }
+
+    bindHistoryEvents() {
+        // 状态筛选按钮
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const status = btn.dataset.status || null;
+                this.loadHistory(1, status);
+            });
+        });
+
+        const prevBtn = document.getElementById('history-prev');
+        const nextBtn = document.getElementById('history-next');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                if (this.historyPage > 1) {
+                    this.loadHistory(this.historyPage - 1, this.historyStatus);
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                this.loadHistory(this.historyPage + 1, this.historyStatus);
+            });
+        }
+
+        // 点击历史记录项显示弹窗
+        document.querySelectorAll('.history-item[data-index]').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const index = parseInt(item.dataset.index);
+                if (this.historyItems && this.historyItems[index]) {
+                    this.showDetailModal(this.historyItems[index]);
+                }
+            });
+        });
+
+        // 弹窗关闭按钮
+        const closeBtn = document.getElementById('modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideDetailModal());
+        }
+
+        // 点击弹窗背景关闭
+        const modal = document.getElementById('history-detail-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideDetailModal();
+                }
+            });
+        }
+    }
+
+    showDetailModal(item) {
+        const modal = document.getElementById('history-detail-modal');
+        const content = document.getElementById('modal-content');
+        const tweetLink = document.getElementById('modal-tweet-link');
+        const markCompleteBtn = document.getElementById('modal-mark-complete');
+        const closeBtn = document.getElementById('modal-close-btn');
+
+        if (!modal || !content) return;
+
+        // 保存当前查看的记录
+        this.currentDetailItem = item;
+
+        const isPending = item.status === 'pending';
+        const statusLabel = isPending ? '待评论' : '已完成';
+        const statusClass = isPending ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700';
+
+        // 填充内容
+        content.innerHTML = `
+            <!-- 状态 -->
+            <div class="detail-status mb-2">
+                <span class="status-tag px-3 py-1.5 rounded text-sm font-bold ${statusClass}">${statusLabel}</span>
+            </div>
+
+            <!-- 推特主号 -->
+            <div class="detail-section">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-500 uppercase font-medium">推特主号</span>
+                    <button class="copy-btn text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1 text-xs" data-copy="@${item.tweet_author}">
+                        <span class="material-icons-outlined text-sm">content_copy</span> 复制
+                    </button>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <span class="text-blue-600 font-bold text-lg">@${item.tweet_author}</span>
+                </div>
+            </div>
+
+            <!-- 推文内容 -->
+            <div class="detail-section">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-500 uppercase font-medium">推文内容</span>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-lg">
+                    <p class="text-slate-700 whitespace-pre-wrap">${item.tweet_content || '(无内容)'}</p>
+                </div>
+            </div>
+
+            <!-- 评论内容 -->
+            <div class="detail-section">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-slate-500 uppercase font-medium">评论内容</span>
+                    <button class="copy-btn text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1 text-xs" data-copy="${this.escapeHtml(item.comment_content)}">
+                        <span class="material-icons-outlined text-sm">content_copy</span> 复制
+                    </button>
+                </div>
+                <div class="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    <p class="text-slate-800 whitespace-pre-wrap">${item.comment_content}</p>
+                </div>
+            </div>
+
+            <!-- 元信息 -->
+            <div class="detail-meta flex items-center gap-3 text-xs text-slate-400 pt-2">
+                <span class="region-tag px-2 py-1 rounded font-bold ${item.region === 'ja' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}">${item.region === 'ja' ? '日区' : '美区'}</span>
+                <span class="px-2 py-1 bg-slate-100 rounded">${item.comment_style}</span>
+                <span class="ml-auto">${new Date(item.published_at).toLocaleString()}</span>
+            </div>
+        `;
+
+        // 设置推文链接
+        if (tweetLink) {
+            tweetLink.href = item.tweet_url;
+        }
+
+        // 显示/隐藏"已评论"按钮
+        if (markCompleteBtn) {
+            if (isPending) {
+                markCompleteBtn.classList.remove('hidden');
+                markCompleteBtn.onclick = () => this.markCommentComplete(item.id);
+            } else {
+                markCompleteBtn.classList.add('hidden');
+            }
+        }
+
+        // 关闭按钮
+        if (closeBtn) {
+            closeBtn.onclick = () => this.hideDetailModal();
+        }
+
+        // 绑定复制按钮事件
+        content.querySelectorAll('.copy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = btn.dataset.copy;
+                this.copyToClipboard(text, btn);
+            });
+        });
+
+        // 显示弹窗
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    async markCommentComplete(commentId) {
+        const btn = document.getElementById('modal-mark-complete');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-icons-outlined text-sm align-middle mr-1 animate-spin">sync</span>处理中...';
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`/api/comment-assistant/history/${commentId}/complete`, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || '标记失败');
+            }
+
+            // 关闭弹窗并刷新列表
+            this.hideDetailModal();
+            this.loadHistory(this.historyPage, this.historyStatus);
+        } catch (error) {
+            alert('标记失败: ' + error.message);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-icons-outlined text-sm align-middle mr-1">check</span>已评论';
+            }
+        }
+    }
+
+    hideDetailModal() {
+        const modal = document.getElementById('history-detail-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    }
+
+    copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            // 显示复制成功
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="material-icons-outlined text-sm">check</span> 已复制';
+            btn.classList.add('text-green-600');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('text-green-600');
+            }, 1500);
+        }).catch(() => {
+            alert('复制失败，请手动复制');
+        });
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML.replace(/"/g, '&quot;');
     }
 
     // ============ 费用统计 ============

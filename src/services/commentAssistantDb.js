@@ -28,10 +28,11 @@ class CommentAssistantDbService {
                  notify_frequency = COALESCE($3, notify_frequency),
                  monthly_budget = COALESCE($4, monthly_budget),
                  comment_user_id = COALESCE($5, comment_user_id),
+                 manual_enabled = COALESCE($6, manual_enabled),
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = 1
              RETURNING *`,
-            [data.dailyLimit, data.autoEnabled, data.notifyFrequency, data.monthlyBudget, data.commentUserId]
+            [data.dailyLimit, data.autoEnabled, data.notifyFrequency, data.monthlyBudget, data.commentUserId, data.manualEnabled]
         );
         return result.rows[0];
     }
@@ -75,6 +76,27 @@ class CommentAssistantDbService {
              JOIN twitter_credentials tc ON tc.user_id = u.id
              ORDER BY u.username`
         );
+        return result.rows;
+    }
+
+    /**
+     * 获取所有有评论助手权限的用户（排除指定的自动发布用户）
+     * @param {number|null} excludeUserId 要排除的用户ID（自动发布用户）
+     */
+    async getManualCommentUsers(excludeUserId = null) {
+        let query = `
+            SELECT u.id, u.username, tc.twitter_username
+            FROM users u
+            LEFT JOIN twitter_credentials tc ON tc.user_id = u.id
+            WHERE u.can_use_comment_assistant = true
+        `;
+        const params = [];
+        if (excludeUserId) {
+            query += ` AND u.id != $1`;
+            params.push(excludeUserId);
+        }
+        query += ` ORDER BY u.username`;
+        const result = await pool.query(query, params);
         return result.rows;
     }
 
@@ -308,12 +330,15 @@ class CommentAssistantDbService {
 
     /**
      * 保存评论记录
+     * @param {Object} data 评论数据
+     * @param {string} data.status 状态: 'pending' 待评论, 'completed' 已完成
+     * @param {boolean} data.isAuto 是否为自动评论
      */
     async saveComment(data) {
         const result = await pool.query(
             `INSERT INTO comment_history
-             (user_id, region, tweet_id, tweet_url, tweet_author, tweet_content, comment_content, comment_style, comment_tweet_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             (user_id, region, tweet_id, tweet_url, tweet_author, tweet_content, comment_content, comment_style, comment_tweet_id, status, is_auto)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              RETURNING *`,
             [
                 data.userId,
@@ -324,19 +349,53 @@ class CommentAssistantDbService {
                 data.tweetContent,
                 data.commentContent,
                 data.commentStyle,
-                data.commentTweetId
+                data.commentTweetId,
+                data.status || 'completed',
+                data.isAuto !== false  // 默认为 true
             ]
         );
         return result.rows[0];
     }
 
     /**
-     * 检查是否已评论过该帖子
+     * 标记评论为已完成（手动评论后调用）
+     * @param {number} userId 用户ID
+     * @param {number} commentId 评论记录ID
+     */
+    async markCommentCompleted(userId, commentId) {
+        const result = await pool.query(
+            `UPDATE comment_history
+             SET status = 'completed', published_at = CURRENT_TIMESTAMP
+             WHERE id = $1 AND user_id = $2 AND status = 'pending'
+             RETURNING *`,
+            [commentId, userId]
+        );
+        return result.rows[0];
+    }
+
+    /**
+     * 检查是否已有自动评论记录（已完成的自动评论才算）
+     * 手动评论的待评论记录不影响这个判断
      */
     async hasCommented(tweetId) {
         const result = await pool.query(
-            `SELECT id FROM comment_history WHERE tweet_id = $1 LIMIT 1`,
+            `SELECT id FROM comment_history
+             WHERE tweet_id = $1 AND is_auto = true AND status = 'completed'
+             LIMIT 1`,
             [tweetId]
+        );
+        return result.rows.length > 0;
+    }
+
+    /**
+     * 检查用户是否已有该帖子的评论记录（任何状态）
+     */
+    async hasUserComment(userId, tweetId) {
+        const result = await pool.query(
+            `SELECT id FROM comment_history
+             WHERE user_id = $1 AND tweet_id = $2
+             LIMIT 1`,
+            [userId, tweetId]
         );
         return result.rows.length > 0;
     }
@@ -354,18 +413,29 @@ class CommentAssistantDbService {
 
     /**
      * 获取评论历史列表
+     * @param {Object} options 筛选选项
+     * @param {number} options.userId 用户ID（普通用户只能看自己的）
+     * @param {string} options.status 状态筛选（pending/completed）
      */
     async getHistory(options = {}) {
-        const { page = 1, limit = 20, region = null, startDate = null, endDate = null } = options;
+        const { page = 1, limit = 20, region = null, startDate = null, endDate = null, status = null, userId = null } = options;
         const offset = (page - 1) * limit;
 
         let whereClause = '1=1';
         const params = [];
         let paramIndex = 1;
 
+        if (userId) {
+            whereClause += ` AND user_id = $${paramIndex++}`;
+            params.push(userId);
+        }
         if (region) {
             whereClause += ` AND region = $${paramIndex++}`;
             params.push(region);
+        }
+        if (status) {
+            whereClause += ` AND status = $${paramIndex++}`;
+            params.push(status);
         }
         if (startDate) {
             whereClause += ` AND published_at >= $${paramIndex++}`;
@@ -380,9 +450,11 @@ class CommentAssistantDbService {
         params.push(limit, offset);
 
         const result = await pool.query(
-            `SELECT * FROM comment_history
+            `SELECT ch.*, u.username
+             FROM comment_history ch
+             LEFT JOIN users u ON u.id = ch.user_id
              WHERE ${whereClause}
-             ORDER BY published_at DESC
+             ORDER BY ch.published_at DESC
              LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
             params
         );
@@ -392,9 +464,21 @@ class CommentAssistantDbService {
             countParams
         );
 
+        // 统计待评论数量（仅当前用户）
+        let pendingCount = 0;
+        if (userId) {
+            const pendingResult = await pool.query(
+                `SELECT COUNT(*) as count FROM comment_history
+                 WHERE user_id = $1 AND status = 'pending'`,
+                [userId]
+            );
+            pendingCount = parseInt(pendingResult.rows[0].count);
+        }
+
         return {
             items: result.rows,
             total: parseInt(countResult.rows[0].count),
+            pendingCount,
             page,
             limit
         };
