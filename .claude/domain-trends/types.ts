@@ -79,9 +79,11 @@ export interface RawTweet {
   id: string;
   text: string;
   author: {
-    userName: string;
+    userName?: string;
+    username?: string;
     name: string;
-    followersCount: number;
+    followersCount?: number;
+    followers?: number;
   };
   likeCount: number;
   retweetCount: number;
@@ -95,8 +97,8 @@ export interface RawTweet {
 // API 搜索响应
 export interface SearchResponse {
   tweets: RawTweet[];
-  has_next_page: boolean;
-  next_cursor: string;
+  has_next_page?: boolean;
+  next_cursor?: string;
 }
 
 // 聚合话题

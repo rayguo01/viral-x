@@ -6,37 +6,48 @@ import { DomainTweet, RawTweet, SearchResponse } from './types';
 
 interface TwitterApiConfig {
   apiKey: string;
+  provider?: 'twitterapi' | 'xquik';
 }
 
 export class TwitterApiClient {
   private apiKey: string;
-  private baseUrl = 'https://api.twitterapi.io';
+  private provider: 'twitterapi' | 'xquik';
+  private baseUrl: string;
 
   constructor(config: TwitterApiConfig) {
     this.apiKey = config.apiKey;
+    this.provider = config.provider || 'twitterapi';
+    this.baseUrl = this.provider === 'xquik'
+      ? 'https://xquik.com'
+      : 'https://api.twitterapi.io';
   }
 
   /**
    * 按关键词搜索推文
    */
   async search(query: string, count: number = 100, kolAccounts: string[] = []): Promise<DomainTweet[]> {
+    return this.searchWithSource(query, count, kolAccounts, 'search', 'Top');
+  }
+
+  private async searchWithSource(
+    query: string,
+    count: number,
+    kolAccounts: string[],
+    source: 'search' | 'kol',
+    queryType: 'Top' | 'Latest'
+  ): Promise<DomainTweet[]> {
     const tweets: DomainTweet[] = [];
     let cursor = '';
 
-    console.log(`[TwitterAPI] 搜索: ${query.substring(0, 50)}...`);
+    console.log(`[${this.provider}] 搜索: ${query.substring(0, 50)}...`);
 
     while (tweets.length < count) {
-      // 构建 URL 参数
-      // 使用 Top 排序获取热门推文，而非 Latest（最新但低互动）
-      const params = new URLSearchParams({
-        query,
-        queryType: 'Top'
-      });
+      const params = this.buildSearchParams(query, queryType, count);
       if (cursor) {
         params.append('cursor', cursor);
       }
 
-      const response = await fetch(`${this.baseUrl}/twitter/tweet/advanced_search?${params.toString()}`, {
+      const response = await fetch(`${this.searchEndpoint()}?${params.toString()}`, {
         method: 'GET',
         headers: {
           'X-API-Key': this.apiKey
@@ -51,20 +62,21 @@ export class TwitterApiClient {
       const data = await response.json() as SearchResponse;
 
       if (!data.tweets || data.tweets.length === 0) {
-        console.log(`[TwitterAPI] 没有更多结果`);
+        console.log(`[${this.provider}] 没有更多结果`);
         break;
       }
 
       for (const tweet of data.tweets) {
-        const transformed = this.transformTweet(tweet, 'search', kolAccounts);
+        const transformed = this.transformTweet(tweet, source, kolAccounts);
         tweets.push(transformed);
         if (tweets.length >= count) break;
       }
 
-      console.log(`[TwitterAPI] 已获取 ${tweets.length}/${count} 条推文`);
+      console.log(`[${this.provider}] 已获取 ${tweets.length}/${count} 条推文`);
 
       if (!data.has_next_page) break;
-      cursor = data.next_cursor;
+      cursor = data.next_cursor || '';
+      if (!cursor) break;
 
       // 短暂延迟避免请求过快
       await this.delay(500);
@@ -77,7 +89,17 @@ export class TwitterApiClient {
    * 获取 KOL 用户的最新推文
    */
   async getUserTweets(username: string, count: number = 10): Promise<DomainTweet[]> {
-    console.log(`[TwitterAPI] 获取 @${username} 的推文...`);
+    console.log(`[${this.provider}] 获取 @${username} 的推文...`);
+
+    if (this.provider === 'xquik') {
+      return this.searchWithSource(
+        `from:${username} -filter:retweets`,
+        count,
+        [username],
+        'kol',
+        'Latest'
+      );
+    }
 
     try {
       const params = new URLSearchParams({
@@ -147,7 +169,7 @@ export class TwitterApiClient {
    * 转换原始推文为标准格式
    */
   private transformTweet(raw: RawTweet, source: 'search' | 'kol', kolAccounts: string[]): DomainTweet {
-    const authorUsername = raw.author?.userName || '';
+    const authorUsername = raw.author?.userName || raw.author?.username || '';
     const isKol = kolAccounts.some(k =>
       k.toLowerCase() === authorUsername.toLowerCase()
     );
@@ -156,7 +178,7 @@ export class TwitterApiClient {
       id: raw.id,
       text: raw.text,
       author: authorUsername,
-      authorFollowers: raw.author?.followersCount || 0,
+      authorFollowers: raw.author?.followersCount || raw.author?.followers || 0,
       likes: raw.likeCount || 0,
       retweets: raw.retweetCount || 0,
       replies: raw.replyCount || 0,
@@ -173,6 +195,27 @@ export class TwitterApiClient {
    */
   private delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  private searchEndpoint(): string {
+    return this.provider === 'xquik'
+      ? `${this.baseUrl}/api/v1/x/tweets/search`
+      : `${this.baseUrl}/twitter/tweet/advanced_search`;
+  }
+
+  private buildSearchParams(query: string, queryType: 'Top' | 'Latest', count: number): URLSearchParams {
+    if (this.provider === 'xquik') {
+      return new URLSearchParams({
+        q: query,
+        queryType,
+        limit: String(Math.min(count, 100))
+      });
+    }
+
+    return new URLSearchParams({
+      query,
+      queryType
+    });
   }
 }
 

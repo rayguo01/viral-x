@@ -15,6 +15,8 @@ const OUTPUT_DIR = path.join(projectRoot, 'outputs');
 const TRENDS_DIR = path.join(OUTPUT_DIR, 'trends/domain');
 const PRESETS_DIR = path.join(__dirname, 'presets');
 
+type TwitterProvider = 'twitterapi' | 'xquik';
+
 // 确保目录存在
 if (!fs.existsSync(TRENDS_DIR)) {
   fs.mkdirSync(TRENDS_DIR, { recursive: true });
@@ -92,13 +94,7 @@ export async function fetchGroupTweets(
   group: KolGroup,
   config: GroupRotationConfig
 ): Promise<DomainTweet[]> {
-  const apiKey = process.env.TWITTER_API_IO_KEY;
-
-  if (!apiKey) {
-    throw new Error('缺少环境变量 TWITTER_API_IO_KEY');
-  }
-
-  const client = new TwitterApiClient({ apiKey });
+  const client = createTwitterApiClient();
 
   console.log(`📡 抓取分组 [${group.groupId}]: ${group.name}`);
   console.log(`👥 KOL 列表: ${group.accounts.join(', ')}`);
@@ -220,13 +216,7 @@ export async function runWithRotation(presetId: string = 'ai'): Promise<{
  * 抓取推文数据
  */
 export async function fetchTweets(config: DomainConfig): Promise<DomainTweet[]> {
-  const apiKey = process.env.TWITTER_API_IO_KEY;
-
-  if (!apiKey) {
-    throw new Error('缺少环境变量 TWITTER_API_IO_KEY');
-  }
-
-  const client = new TwitterApiClient({ apiKey });
+  const client = createTwitterApiClient();
   const allTweets: DomainTweet[] = [];
   const seenIds = new Set<string>();
 
@@ -288,6 +278,27 @@ export async function fetchTweets(config: DomainConfig): Promise<DomainTweet[]> 
 
   console.log(`✅ 总计: ${allTweets.length} 条唯一推文`);
   return allTweets;
+}
+
+function createTwitterApiClient(): TwitterApiClient {
+  const provider = getTwitterProvider();
+  return new TwitterApiClient({
+    provider,
+    apiKey: getTwitterApiKey(provider)
+  });
+}
+
+function getTwitterProvider(): TwitterProvider {
+  return process.env.TWITTER_TRENDS_PROVIDER === 'xquik' ? 'xquik' : 'twitterapi';
+}
+
+function getTwitterApiKey(provider: TwitterProvider): string {
+  const envName = provider === 'xquik' ? 'XQUIK_API_KEY' : 'TWITTER_API_IO_KEY';
+  const apiKey = process.env[envName];
+  if (!apiKey) {
+    throw new Error(`缺少环境变量 ${envName}`);
+  }
+  return apiKey;
 }
 
 /**
